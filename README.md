@@ -1,54 +1,91 @@
 # Turnos_ya - Frontend Mobile Application
 
-Módulo cliente móvil de la plataforma **Turnos_ya**. Diseñado para dispositivos Android e iOS, permite a los usuarios reservar turnos de forma rápida con geolocalización, recibir notificaciones push en tiempo real y gestionar reservas desde smartphones y tablets.
+Módulo cliente móvil de la plataforma **Turnos_ya** desarrollado en **React Native + Expo (TypeScript)**. Diseñado bajo las pautas del [Sistema de Diseño](../Turnos_ya_documents-main/design-system.md) con estética limpia de alto contraste ("Estilo Mercado Libre": color primario `#009ee3`, tarjetas con elevación suave, badges semánticos pastel y selección de turnos en 3 pasos).
 
 ---
 
-## 🛠️ Stack Tecnológico Planificado
+## 🛠️ Stack Tecnológico Implementado
 
-- **Framework**: [Flutter](https://flutter.dev/) / [React Native](https://reactnative.dev/) (Multiplataforma iOS & Android)
-- **Lenguaje**: Dart / TypeScript
-- **Cliente HTTP**: Dio / Axios (Integración directa con `Turnos_ya_backend-api`)
-- **Gestión de Estado**: Provider / Redux / Zustand
-- **Notificaciones Push**: Firebase Cloud Messaging (FCM)
-- **Servicios de Mapas**: Google Maps SDK API para geolocalización de comercios cercanos
+- **Framework**: [Expo](https://expo.dev/) / [React Native](https://reactnative.dev/)
+- **Lenguaje**: TypeScript
+- **Navegación**: React Navigation (`@react-navigation/native`, `@react-navigation/bottom-tabs`, `@react-navigation/native-stack`)
+- **Cliente HTTP**: Axios con interceptor dinámico de JWT y soporte para cambio de IP de servidor
+- **Almacenamiento Local**: `@react-native-async-storage/async-storage`
+- **Iconografía**: `@expo/vector-icons` (Ionicons)
+- **Fechas**: `date-fns` con localización en español (`es`)
 
 ---
 
-## 📁 Estructura del Proyecto (Arquitectura Objetivo)
+## 📁 Arquitectura del Proyecto
 
 ```text
 Turnos_ya_frontend_mobile-main/
-├── android/                # Configuración nativa para plataforma Android
-├── ios/                    # Configuración nativa para plataforma iOS
-├── lib/ / src/             # Código fuente de la aplicación móvil
-│   ├── assets/             # Recursos gráficos, íconos y fuentes de la app
-│   ├── components/         # Componentes nativos y widgets reutilizables
-│   ├── models/             # Modelos de datos (User, Business, Appointment, Service)
-│   ├── navigation/         # Enrutamiento y navegación por pestañas/pantallas
-│   ├── providers/          # Gestión de estado (Autenticación, Ubicación, Reservas)
-│   ├── screens/            # Pantallas principales de la app móvil
-│   │   ├── auth/           # Pantallas de Login y Registro
-│   │   ├── home/           # Búsqueda de comercios y mapa interactivo
-│   │   ├── booking/        # Asistente táctil de selección de turno y hold
-│   │   ├── appointments/   # Mis turnos e histórico de reservas
-│   │   └── profile/        # Ajustes de cuenta y notificaciones push
-│   └── services/           # Conexión con la API RESTful de Turnos_ya
-├── README.md               # Documentación del módulo cliente móvil
-└── pubspec.yaml / package.json # Definición de dependencias y scripts
+├── src/
+│   ├── components/
+│   │   ├── business/
+│   │   │   └── BusinessCard.tsx       # Tarjeta de comercio con calificación, rubro y dirección
+│   │   └── common/
+│   │       ├── Button.tsx             # Botón primario, secundario, outline y danger
+│   │       ├── Card.tsx               # Tarjeta con elevación sutil (.ml-card)
+│   │       ├── SlotPill.tsx           # Píldora de selección de horarios (.btn-slot-pill)
+│   │       └── StatusBadge.tsx        # Badges pastel de turnos (Confirmado, Pendiente, Cancelado)
+│   ├── constants/
+│   │   └── theme.ts                   # Tokens de color, tipografía, sombras y bordes del Design System
+│   ├── context/
+│   │   └── AuthContext.tsx            # Estado global de usuario, token JWT y sincronización con backend
+│   ├── navigation/
+│   │   └── RootNavigator.tsx          # Barra de navegación inferior (Tabs) + Stack de pantallas
+│   ├── screens/
+│   │   ├── appointments/
+│   │   │   └── MyAppointmentsScreen.tsx # Pestañas Próximos e Historial con opción de cancelar turno
+│   │   ├── auth/
+│   │   │   ├── LoginScreen.tsx        # Inicio de sesión con validación y guardado de sesión
+│   │   │   └── RegisterScreen.tsx     # Registro de nuevos usuarios con rol cliente
+│   │   ├── booking/
+│   │   │   └── BookingWizardScreen.tsx  # Asistente táctil de reserva en 3 pasos (Servicio -> Fecha/Hora -> Hold & Confirmación)
+│   │   ├── business/
+│   │   │   └── BusinessDetailScreen.tsx # Detalle del negocio, listado de servicios y calificaciones
+│   │   ├── home/
+│   │   │   └── HomeScreen.tsx         # Búsqueda dinámica, chips de categorías y lista de comercios
+│   │   └── profile/
+│   │       └── ProfileScreen.tsx      # Datos del perfil, switches de alertas y configuración de IP del backend
+│   ├── services/
+│   │   └── api.ts                     # Cliente Axios con timeout e interceptores
+│   ├── types/
+│   │   └── index.ts                   # Contratos TypeScript (User, Business, Service, Appointment)
+│   └── utils/
+│       └── timeHelper.ts              # Utilidades de hora de reloj (wall-clock) y generador de slots
+├── App.tsx                            # Punto de entrada con SafeAreaProvider y AuthProvider
+├── package.json
+└── tsconfig.json
 ```
 
 ---
 
-## ⚙️ Funcionalidades Principales Planificadas
+## 🚀 Cómo Ejecutar la Aplicación
 
-1. **Búsqueda Geolocalizada**: Detección del punto donde se encuentra el usuario para sugerir comercios cercanos en el mapa.
-2. **Reserva en 3 Toques**: Proceso optimizado para pantallas táctiles con selección directa de fecha y hora.
-3. **Notificaciones Push y Recordatorios**: Avisos automáticos previos al horario del turno para reducir el ausentismo (*no-show*).
-4. **Modo Prestador Móvil**: Acceso rápido para dueños de comercios para validar o finalizar turnos en el momento.
+### 1. Iniciar el Servidor de Desarrollo
+```bash
+npm start
+# o
+npx expo start
+```
+
+### 2. Abrir en tu Dispositivo
+- **En celular físico (Android / iOS)**: Descargá la app **Expo Go** de Google Play Store o Apple App Store y escaneá el código QR mostrado en la consola o navegador.
+- **En emulador Android**: Presioná `a` en la terminal.
+- **En simulador iOS**: Presioná `i` en la terminal (requiere macOS).
+- **En navegador Web**: Presioná `w` en la terminal.
 
 ---
 
-## 🚀 Integración con el Backend
+## 🌐 Conexión con el Backend Local
 
-El cliente móvil consume exactamente el mismo contrato OpenAPI definido en `Turnos_ya_documents-main` y servido por `Turnos_ya_backend-api-main`, garantizando paridad total de datos entre la versión Web y la versión Móvil.
+La aplicación viene configurada por defecto para conectarse a:
+- En emulador Android: `http://10.0.2.2:3000/api/v1`
+- En iOS o Web: `http://localhost:3000/api/v1`
+
+**Para probar desde un celular físico con Expo Go:**
+1. Andá a la pestaña **Perfil**.
+2. Desplegá la sección **Conexión con el Servidor API**.
+3. Ingresá la dirección IP local de tu computadora en la red Wi-Fi (ejemplo: `http://192.168.1.50:3000/api/v1`) y presioná **Guardar**.
