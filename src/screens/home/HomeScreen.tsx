@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,12 @@ import { Business, Category } from '../../types';
 import { BusinessCard } from '../../components/business/BusinessCard';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import {
+  type Coordinates,
+  calculateDistanceKm,
+  requestUserLocation,
+  DEFAULT_DEMO_COORDS,
+} from '../../utils/locationHelper';
 
 const DEFAULT_CATEGORIES = [
   'Todos',
@@ -45,6 +52,13 @@ export const HomeScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
+
+  // Estados de Ubicación y Cercanía
+  const [userCoords, setUserCoords] = useState<Coordinates | null>(null);
+  const [sortByProximity, setSortByProximity] = useState<boolean>(false);
+  const [maxDistanceKm, setMaxDistanceKm] = useState<number | null>(null);
+  const [locatingUser, setLocatingUser] = useState<boolean>(false);
+  const [locationLabel, setLocationLabel] = useState<string>('Cerca de ti');
 
   const fetchBusinesses = async () => {
     setErrorMsg('');
@@ -90,9 +104,67 @@ export const HomeScreen: React.FC = () => {
     fetchBusinesses();
   };
 
-  const filteredBusinesses = useMemo(() => {
-    let result = [...businesses];
+  const handleToggleProximity = async () => {
+    if (sortByProximity) {
+      setSortByProximity(false);
+      setMaxDistanceKm(null);
+      return;
+    }
 
+    // Si ya tenemos coordenadas, simplemente activamos
+    if (userCoords) {
+      setSortByProximity(true);
+      return;
+    }
+
+    // Solicitar ubicación al dispositivo
+    setLocatingUser(true);
+    const result = await requestUserLocation();
+    setLocatingUser(false);
+
+    if (result.status === 'granted' && result.coords) {
+      setUserCoords(result.coords);
+      setSortByProximity(true);
+      setLocationLabel('Cerca de ti');
+    } else {
+      Alert.alert(
+        'Ubicación no disponible',
+        'No pudimos acceder a tu GPS o los permisos fueron denegados. ¿Deseás probar el filtro de cercanía usando una ubicación de referencia (Centro CABA)?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Usar Centro CABA',
+            onPress: () => {
+              setUserCoords(DEFAULT_DEMO_COORDS);
+              setSortByProximity(true);
+              setLocationLabel('Centro CABA (Demo)');
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const filteredBusinesses = useMemo(() => {
+    // 1. Mapear con distancia calculada si hay coordenadas
+    let result = businesses.map((b) => {
+      if (userCoords && b.latitude != null && b.longitude != null) {
+        const lat = Number(b.latitude);
+        const lon = Number(b.longitude);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          const dist = calculateDistanceKm(
+            userCoords.latitude,
+            userCoords.longitude,
+            lat,
+            lon
+          );
+          return { ...b, distanceKm: dist };
+        }
+      }
+      return b;
+    });
+
+    // 2. Búsqueda por texto
     if (searchQuery.trim()) {
       const q = normalizeText(searchQuery);
       result = result.filter((b) => {
@@ -109,13 +181,33 @@ export const HomeScreen: React.FC = () => {
       });
     }
 
+    // 3. Filtro por categoría
     if (selectedCategory !== 'Todos') {
       const normCat = normalizeText(selectedCategory);
       result = result.filter((b) => normalizeText(b.category) === normCat);
     }
 
+    // 4. Filtro por radio de distancia (ej: < 3 km, < 5 km)
+    if (sortByProximity && maxDistanceKm !== null) {
+      result = result.filter(
+        (b) => b.distanceKm !== undefined && b.distanceKm <= maxDistanceKm
+      );
+    }
+
+    // 5. Ordenamiento por cercanía (menor a mayor distancia)
+    if (sortByProximity) {
+      result.sort((a, b) => (a.distanceKm ?? 999999) - (b.distanceKm ?? 999999));
+    }
+
     return result;
-  }, [businesses, searchQuery, selectedCategory]);
+  }, [
+    businesses,
+    searchQuery,
+    selectedCategory,
+    userCoords,
+    sortByProximity,
+    maxDistanceKm,
+  ]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -198,11 +290,92 @@ export const HomeScreen: React.FC = () => {
         </ScrollView>
       </View>
 
+      {/* Proximity & Distance Filter Bar */}
+      <View style={styles.proximityBar}>
+        <TouchableOpacity
+          style={[
+            styles.proximityBtn,
+            sortByProximity && styles.proximityBtnActive,
+          ]}
+          onPress={handleToggleProximity}
+          activeOpacity={0.7}
+          disabled={locatingUser}
+        >
+          {locatingUser ? (
+            <ActivityIndicator size="small" color={sortByProximity ? Colors.white : Colors.primary} />
+          ) : (
+            <Ionicons
+              name={sortByProximity ? 'navigate' : 'navigate-outline'}
+              size={14}
+              color={sortByProximity ? Colors.white : Colors.primary}
+            />
+          )}
+          <Text
+            style={[
+              styles.proximityBtnText,
+              sortByProximity && styles.proximityBtnTextActive,
+            ]}
+          >
+            {sortByProximity ? locationLabel : 'Más cercanos'}
+          </Text>
+          {sortByProximity && (
+            <TouchableOpacity
+              onPress={() => {
+                setSortByProximity(false);
+                setMaxDistanceKm(null);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={15} color={Colors.white} />
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+
+        {sortByProximity && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.radiusChipsContainer}
+          >
+            {[
+              { label: 'Todos', value: null },
+              { label: '< 3 km', value: 3 },
+              { label: '< 5 km', value: 5 },
+              { label: '< 10 km', value: 10 },
+            ].map((option) => {
+              const isSelected = maxDistanceKm === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.label}
+                  style={[
+                    styles.radiusChip,
+                    isSelected && styles.radiusChipActive,
+                  ]}
+                  onPress={() => setMaxDistanceKm(option.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.radiusChipText,
+                      isSelected && styles.radiusChipTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+
       {/* Businesses List */}
       <View style={styles.listContainer}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
-            {selectedCategory === 'Todos'
+            {sortByProximity
+              ? 'Comercios más cercanos'
+              : selectedCategory === 'Todos'
               ? 'Comercios destacados'
               : `Comercios en ${selectedCategory}`}
           </Text>
@@ -379,6 +552,62 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.medium,
   },
   categoryChipTextActive: {
+    color: Colors.white,
+    fontWeight: Typography.weights.bold,
+  },
+  proximityBar: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  proximityBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    gap: 5,
+  },
+  proximityBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  proximityBtnText: {
+    fontSize: Typography.sizes.xs + 1,
+    fontWeight: Typography.weights.bold,
+    color: Colors.primary,
+  },
+  proximityBtnTextActive: {
+    color: Colors.white,
+  },
+  radiusChipsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  radiusChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  radiusChipActive: {
+    backgroundColor: '#0284c7',
+    borderColor: '#0284c7',
+  },
+  radiusChipText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.medium,
+    color: Colors.textSecondary,
+  },
+  radiusChipTextActive: {
     color: Colors.white,
     fontWeight: Typography.weights.bold,
   },

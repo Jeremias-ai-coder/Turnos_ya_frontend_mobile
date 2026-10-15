@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../common/Card';
 import { Colors, Typography, BorderRadius, Spacing } from '../../constants/theme';
 import { Business } from '../../types';
+import { formatDistance } from '../../utils/locationHelper';
 
 interface BusinessCardProps {
   business: Business;
@@ -33,10 +34,21 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({ business, onPress })
             ) : null}
           </View>
 
-          <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>
-              {business.category || 'General'}
-            </Text>
+          <View style={styles.badgeRow}>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryText}>
+                {business.category || 'General'}
+              </Text>
+            </View>
+
+            {business.distanceKm !== undefined ? (
+              <View style={styles.distanceBadge}>
+                <Ionicons name="navigate-outline" size={11} color={Colors.primary} />
+                <Text style={styles.distanceText}>
+                  {formatDistance(business.distanceKm)}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </View>
       </View>
@@ -118,18 +130,37 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
     color: '#b45309',
   },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
   categoryBadge: {
     backgroundColor: Colors.surfaceAlt,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
     alignSelf: 'flex-start',
-    marginTop: 3,
   },
   categoryText: {
     fontSize: Typography.sizes.xs,
     color: Colors.textSecondary,
     fontWeight: Typography.weights.medium,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    gap: 3,
+  },
+  distanceText: {
+    fontSize: Typography.sizes.xs,
+    color: '#0284c7',
+    fontWeight: Typography.weights.bold,
   },
   addressRow: {
     flexDirection: 'row',
