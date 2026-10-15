@@ -16,7 +16,7 @@ import { RegisterScreen } from '../screens/auth/RegisterScreen';
 import { Colors, Typography, Spacing } from '../constants/theme';
 
 export type RootStackParamList = {
-  MainTabs: undefined;
+  MainTabs: { screen?: keyof BottomTabParamList } | undefined;
   BusinessDetail: { businessId: number };
   BookingWizard: {
     businessId: number;

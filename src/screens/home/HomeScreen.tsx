@@ -9,9 +9,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
@@ -54,7 +54,7 @@ export const HomeScreen: React.FC = () => {
       const data = Array.isArray(raw) ? raw : [];
       setBusinesses(data);
     } catch (err: any) {
-      console.error('Error fetching businesses:', err);
+      console.warn('Error fetching businesses:', err?.message || err);
       const url = api.defaults.baseURL || '';
       setErrorMsg(
         err.message?.includes('Network Error')

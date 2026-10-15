@@ -8,9 +8,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,7 +33,11 @@ export const ProfileScreen: React.FC = () => {
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEYS.API_URL).then((val) => {
-      setCustomApiUrl(val || getAutoDetectedBaseUrl());
+      if (val && !val.includes('172.27.') && !val.includes('localhost') && !val.includes('10.0.2.2')) {
+        setCustomApiUrl(val);
+      } else {
+        setCustomApiUrl(getAutoDetectedBaseUrl());
+      }
     });
   }, []);
 

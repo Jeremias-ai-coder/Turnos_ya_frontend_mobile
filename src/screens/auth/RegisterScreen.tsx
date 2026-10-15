@@ -5,12 +5,12 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
@@ -50,7 +50,7 @@ export const RegisterScreen: React.FC = () => {
 
       if (res.data.token && res.data.user) {
         await login(res.data.token, res.data.user);
-        navigation.navigate('HomeTab');
+        navigation.navigate('MainTabs', { screen: 'HomeTab' });
       } else {
         navigation.navigate('Login');
       }
