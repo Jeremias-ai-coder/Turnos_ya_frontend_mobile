@@ -11,6 +11,7 @@ import {
   RefreshControl,
   StatusBar,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -210,255 +211,262 @@ export const HomeScreen: React.FC = () => {
   ]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
 
-      {/* Top Navbar Header */}
-      <View style={styles.topHeader}>
-        <View>
-          <View style={styles.brandRow}>
-            <Text style={styles.brandPrimary}>Turnos</Text>
-            <Text style={styles.brandSecondary}>Ya</Text>
-          </View>
-          <Text style={styles.subtitle}>
-            {user ? `¡Hola, ${user.name.split(' ')[0]}!` : 'Encontrá y reservá tu turno al instante'}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.avatarButton}
-          onPress={() => navigation.navigate('ProfileTab')}
-        >
-          <Ionicons
-            name={user ? 'person' : 'person-outline'}
-            size={20}
-            color={Colors.primary}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Search Input */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={20} color={Colors.textSecondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar por comercio, servicio o dirección..."
-            placeholderTextColor={Colors.textDisabled}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Category Pills Slider */}
-      <View style={styles.categoriesWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesList}
-        >
-          {categories.map((cat) => {
-            const isSelected = selectedCategory === cat;
-            return (
-              <TouchableOpacity
-                key={cat}
-                activeOpacity={0.7}
-                onPress={() => setSelectedCategory(cat)}
-                style={[
-                  styles.categoryChip,
-                  isSelected && styles.categoryChipActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    isSelected && styles.categoryChipTextActive,
-                  ]}
-                >
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Proximity & Distance Filter Bar */}
-      <View style={styles.proximityBar}>
-        <TouchableOpacity
-          style={[
-            styles.proximityBtn,
-            sortByProximity && styles.proximityBtnActive,
-          ]}
-          onPress={handleToggleProximity}
-          activeOpacity={0.7}
-          disabled={locatingUser}
-        >
-          {locatingUser ? (
-            <ActivityIndicator size="small" color={sortByProximity ? Colors.white : Colors.primary} />
-          ) : (
-            <Ionicons
-              name={sortByProximity ? 'navigate' : 'navigate-outline'}
-              size={14}
-              color={sortByProximity ? Colors.white : Colors.primary}
+      <View style={styles.mainContainer}>
+        {/* Top Section with Celeste Background (from Comercios destacados upwards) */}
+        <View style={styles.heroSection}>
+          {/* Top Navbar Header */}
+          <View style={styles.topHeader}>
+            <Image
+              source={require('../../../assets/brand/logo-white.png')}
+              style={styles.brandLogo}
+              resizeMode="contain"
             />
-          )}
-          <Text
-            style={[
-              styles.proximityBtnText,
-              sortByProximity && styles.proximityBtnTextActive,
-            ]}
-          >
-            {sortByProximity ? locationLabel : 'Más cercanos'}
-          </Text>
-          {sortByProximity && (
-            <TouchableOpacity
-              onPress={() => {
-                setSortByProximity(false);
-                setMaxDistanceKm(null);
-              }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close-circle" size={15} color={Colors.white} />
-            </TouchableOpacity>
-          )}
-        </TouchableOpacity>
 
-        {sortByProximity && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.radiusChipsContainer}
-          >
-            {[
-              { label: 'Todos', value: null },
-              { label: '< 3 km', value: 3 },
-              { label: '< 5 km', value: 5 },
-              { label: '< 10 km', value: 10 },
-            ].map((option) => {
-              const isSelected = maxDistanceKm === option.value;
-              return (
-                <TouchableOpacity
-                  key={option.label}
-                  style={[
-                    styles.radiusChip,
-                    isSelected && styles.radiusChipActive,
-                  ]}
-                  onPress={() => setMaxDistanceKm(option.value)}
-                  activeOpacity={0.7}
-                >
-                  <Text
+            <View style={styles.headerRight}>
+              {user ? (
+                <Text style={styles.userNameText}>¡Hola, {user.name.split(' ')[0]}!</Text>
+              ) : null}
+              <TouchableOpacity
+                style={styles.avatarButton}
+                onPress={() => navigation.navigate('ProfileTab')}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={user ? 'person' : 'person-outline'}
+                  size={20}
+                  color={Colors.primary}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Search Input */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBox}>
+              <Ionicons name="search" size={20} color={Colors.primary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar por comercio, servicio o dirección..."
+                placeholderTextColor={Colors.textDisabled}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                clearButtonMode="while-editing"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={18} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* Category Pills Slider */}
+          <View style={styles.categoriesWrapper}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesList}
+            >
+              {categories.map((cat) => {
+                const isSelected = selectedCategory === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    activeOpacity={0.7}
+                    onPress={() => setSelectedCategory(cat)}
                     style={[
-                      styles.radiusChipText,
-                      isSelected && styles.radiusChipTextActive,
+                      styles.categoryChip,
+                      isSelected && styles.categoryChipActive,
                     ]}
                   >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
-      </View>
-
-      {/* Businesses List */}
-      <View style={styles.listContainer}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            {sortByProximity
-              ? 'Comercios más cercanos'
-              : selectedCategory === 'Todos'
-              ? 'Comercios destacados'
-              : `Comercios en ${selectedCategory}`}
-          </Text>
-          <Text style={styles.resultsCount}>
-            {filteredBusinesses.length}{' '}
-            {filteredBusinesses.length === 1 ? 'resultado' : 'resultados'}
-          </Text>
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Cargando opciones disponibles...</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredBusinesses}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => (
-              <BusinessCard
-                business={item}
-                onPress={() =>
-                  navigation.navigate('BusinessDetail', { businessId: item.id })
-                }
-              />
-            )}
-            contentContainerStyle={styles.flatListContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[Colors.primary]}
-              />
-            }
-            ListEmptyComponent={
-              errorMsg ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons
-                    name="cloud-offline-outline"
-                    size={54}
-                    color={Colors.danger}
-                  />
-                  <Text style={[styles.emptyTitle, { color: Colors.danger }]}>
-                    Error de Conexión
-                  </Text>
-                  <Text style={styles.emptySubtitle}>{errorMsg}</Text>
-                  <TouchableOpacity
-                    style={[styles.clearFiltersBtn, { backgroundColor: Colors.primary }]}
-                    onPress={fetchBusinesses}
-                  >
-                    <Text style={[styles.clearFiltersText, { color: Colors.white }]}>
-                      Reintentar Conexión
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        isSelected && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {cat}
                     </Text>
                   </TouchableOpacity>
-                </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Proximity & Distance Filter Bar */}
+          <View style={styles.proximityBar}>
+            <TouchableOpacity
+              style={[
+                styles.proximityBtn,
+                sortByProximity && styles.proximityBtnActive,
+              ]}
+              onPress={handleToggleProximity}
+              activeOpacity={0.7}
+              disabled={locatingUser}
+            >
+              {locatingUser ? (
+                <ActivityIndicator size="small" color={sortByProximity ? Colors.primary : Colors.white} />
               ) : (
-                <View style={styles.emptyContainer}>
-                  <Ionicons
-                    name="storefront-outline"
-                    size={54}
-                    color={Colors.textDisabled}
-                  />
-                  <Text style={styles.emptyTitle}>No encontramos comercios</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Probá ajustando la búsqueda o seleccionando otra categoría.
-                  </Text>
-                  {searchQuery || selectedCategory !== 'Todos' ? (
+                <Ionicons
+                  name={sortByProximity ? 'navigate' : 'navigate-outline'}
+                  size={14}
+                  color={sortByProximity ? Colors.primary : Colors.white}
+                />
+              )}
+              <Text
+                style={[
+                  styles.proximityBtnText,
+                  sortByProximity && styles.proximityBtnTextActive,
+                ]}
+              >
+                {sortByProximity ? locationLabel : 'Más cercanos'}
+              </Text>
+              {sortByProximity && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSortByProximity(false);
+                    setMaxDistanceKm(null);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close-circle" size={15} color={Colors.primary} />
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+
+            {sortByProximity && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.radiusChipsContainer}
+              >
+                {[
+                  { label: 'Todos', value: null },
+                  { label: '< 3 km', value: 3 },
+                  { label: '< 5 km', value: 5 },
+                  { label: '< 10 km', value: 10 },
+                ].map((option) => {
+                  const isSelected = maxDistanceKm === option.value;
+                  return (
                     <TouchableOpacity
-                      style={styles.clearFiltersBtn}
-                      onPress={() => {
-                        setSearchQuery('');
-                        setSelectedCategory('Todos');
-                      }}
+                      key={option.label}
+                      style={[
+                        styles.radiusChip,
+                        isSelected && styles.radiusChipActive,
+                      ]}
+                      onPress={() => setMaxDistanceKm(option.value)}
+                      activeOpacity={0.7}
                     >
-                      <Text style={styles.clearFiltersText}>Limpiar filtros</Text>
+                      <Text
+                        style={[
+                          styles.radiusChipText,
+                          isSelected && styles.radiusChipTextActive,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
                     </TouchableOpacity>
-                  ) : null}
-                </View>
-              )
-            }
-          />
-        )}
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+
+        {/* Businesses List */}
+        <View style={styles.listContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {sortByProximity
+                ? 'Comercios más cercanos'
+                : selectedCategory === 'Todos'
+                ? 'Comercios destacados'
+                : `Comercios en ${selectedCategory}`}
+            </Text>
+            <Text style={styles.resultsCount}>
+              {filteredBusinesses.length}{' '}
+              {filteredBusinesses.length === 1 ? 'resultado' : 'resultados'}
+            </Text>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.loadingText}>Cargando opciones disponibles...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredBusinesses}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => (
+                <BusinessCard
+                  business={item}
+                  onPress={() =>
+                    navigation.navigate('BusinessDetail', { businessId: item.id })
+                  }
+                />
+              )}
+              contentContainerStyle={styles.flatListContent}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={[Colors.primary]}
+                />
+              }
+              ListEmptyComponent={
+                errorMsg ? (
+                  <View style={styles.emptyContainer}>
+                    <Ionicons
+                      name="cloud-offline-outline"
+                      size={54}
+                      color={Colors.danger}
+                    />
+                    <Text style={[styles.emptyTitle, { color: Colors.danger }]}>
+                      Error de Conexión
+                    </Text>
+                    <Text style={styles.emptySubtitle}>{errorMsg}</Text>
+                    <TouchableOpacity
+                      style={[styles.clearFiltersBtn, { backgroundColor: Colors.primary }]}
+                      onPress={fetchBusinesses}
+                    >
+                      <Text style={[styles.clearFiltersText, { color: Colors.white }]}>
+                        Reintentar Conexión
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.emptyContainer}>
+                    <Ionicons
+                      name="storefront-outline"
+                      size={54}
+                      color={Colors.textDisabled}
+                    />
+                    <Text style={styles.emptyTitle}>No encontramos comercios</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Probá ajustando la búsqueda o seleccionando otra categoría.
+                    </Text>
+                    {searchQuery || selectedCategory !== 'Todos' ? (
+                      <TouchableOpacity
+                        style={styles.clearFiltersBtn}
+                        onPress={() => {
+                          setSearchQuery('');
+                          setSelectedCategory('Todos');
+                        }}
+                      >
+                        <Text style={styles.clearFiltersText}>Limpiar filtros</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                )
+              }
+            />
+          )}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -467,60 +475,75 @@ export const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: Colors.primary,
+  },
+  mainContainer: {
+    flex: 1,
     backgroundColor: Colors.background,
+  },
+  heroSection: {
+    backgroundColor: Colors.primary,
+    paddingBottom: Spacing.md,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
   },
   topHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
+    paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
   },
-  brandRow: {
+  brandLogo: {
+    width: 110,
+    height: 45,
+  },
+  headerRight: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
-  brandPrimary: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.extraBold,
-    color: Colors.textTitle,
-  },
-  brandSecondary: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.extraBold,
-    color: Colors.primary,
-    marginLeft: 2,
-  },
-  subtitle: {
+  userNameText: {
+    color: Colors.white,
     fontSize: Typography.sizes.sm,
-    color: Colors.textSecondary,
-    marginTop: 2,
+    fontWeight: Typography.weights.semiBold,
   },
   avatarButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
   },
   searchContainer: {
     paddingHorizontal: Spacing.lg,
-    marginVertical: Spacing.sm,
+    marginVertical: Spacing.xs,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.borderInput,
+    backgroundColor: Colors.white,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     height: 46,
     gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   searchInput: {
     flex: 1,
@@ -528,7 +551,8 @@ const styles = StyleSheet.create({
     color: Colors.textMain,
   },
   categoriesWrapper: {
-    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
   categoriesList: {
     paddingHorizontal: Spacing.lg,
@@ -538,26 +562,26 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   categoryChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: Colors.white,
+    borderColor: Colors.white,
   },
   categoryChipText: {
     fontSize: Typography.sizes.sm,
-    color: Colors.textSecondary,
+    color: Colors.white,
     fontWeight: Typography.weights.medium,
   },
   categoryChipTextActive: {
-    color: Colors.white,
+    color: Colors.primary,
     fontWeight: Typography.weights.bold,
   },
   proximityBar: {
     paddingHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -565,25 +589,25 @@ const styles = StyleSheet.create({
   proximityBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: '#bae6fd',
+    borderColor: 'rgba(255, 255, 255, 0.35)',
     gap: 5,
   },
   proximityBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: Colors.white,
+    borderColor: Colors.white,
   },
   proximityBtnText: {
     fontSize: Typography.sizes.xs + 1,
     fontWeight: Typography.weights.bold,
-    color: Colors.primary,
+    color: Colors.white,
   },
   proximityBtnTextActive: {
-    color: Colors.white,
+    color: Colors.primary,
   },
   radiusChipsContainer: {
     flexDirection: 'row',
@@ -594,26 +618,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: BorderRadius.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   radiusChipActive: {
-    backgroundColor: '#0284c7',
-    borderColor: '#0284c7',
+    backgroundColor: Colors.white,
+    borderColor: Colors.white,
   },
   radiusChipText: {
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.medium,
-    color: Colors.textSecondary,
+    color: Colors.white,
   },
   radiusChipTextActive: {
-    color: Colors.white,
+    color: Colors.primary,
     fontWeight: Typography.weights.bold,
   },
   listContainer: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.background,
+    paddingTop: Spacing.sm,
   },
   sectionHeader: {
     flexDirection: 'row',

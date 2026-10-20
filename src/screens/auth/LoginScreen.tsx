@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -80,9 +81,11 @@ export const LoginScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brandContainer}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoBadgeText}>TY</Text>
-            </View>
+            <Image
+              source={require('../../../assets/brand/logo-color.png')}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.welcomeTitle}>¡Hola de nuevo!</Text>
             <Text style={styles.welcomeSubtitle}>
               Ingresá tus credenciales para gestionar tus citas
@@ -200,19 +203,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xl,
   },
-  logoBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  brandLogo: {
+    width: 180,
+    height: 52,
     marginBottom: Spacing.md,
-  },
-  logoBadgeText: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.extraBold,
-    color: Colors.white,
   },
   welcomeTitle: {
     fontSize: Typography.sizes.xxl,
