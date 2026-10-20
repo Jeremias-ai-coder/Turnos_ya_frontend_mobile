@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,11 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { format, isPast, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import api from '../../services/api';
@@ -45,20 +45,22 @@ export const MyAppointmentsScreen: React.FC = () => {
     }
 
     try {
-      const res = await api.get('/appointments/my');
+      const res = await api.get('/appointments');
       const raw = res.data?.data ?? res.data ?? [];
       setAppointments(Array.isArray(raw) ? raw : []);
-    } catch (err) {
-      console.error('Error fetching appointments:', err);
+    } catch (err: any) {
+      console.warn('Error fetching appointments:', err?.message || err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchAppointments();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchAppointments();
+    }, [user])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -93,31 +95,21 @@ export const MyAppointmentsScreen: React.FC = () => {
     );
   };
 
-  // Separar en Próximos y Pasados
+  // Separar en Próximos e Historial según estado de la reserva
   const { upcomingList, historyList } = useMemo(() => {
     const upcoming: Appointment[] = [];
     const history: Appointment[] = [];
-    const now = new Date();
 
     appointments.forEach((apt) => {
-      try {
-        const datePart = apt.date.split('T')[0];
-        const timePart = formatTimeToHHMM(apt.time);
-        const [h, m] = timePart.split(':').map(Number);
-        const [year, month, day] = datePart.split('-').map(Number);
-        const aptDateTime = new Date(year, month - 1, day, h || 0, m || 0);
-
-        if (
-          apt.status === 'CANCELLED' ||
-          apt.status === 'COMPLETED' ||
-          isPast(aptDateTime)
-        ) {
-          history.push(apt);
-        } else {
-          upcoming.push(apt);
-        }
-      } catch {
+      const statusUpper = (apt.status || '').toUpperCase();
+      if (
+        statusUpper === 'CONFIRMED' ||
+        statusUpper === 'PENDING' ||
+        statusUpper === 'IN_PROGRESS'
+      ) {
         upcoming.push(apt);
+      } else {
+        history.push(apt);
       }
     });
 

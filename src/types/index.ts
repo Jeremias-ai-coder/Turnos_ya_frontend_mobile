@@ -29,6 +29,9 @@ export interface Business {
   reviewCount?: number;
   services?: BusinessService[];
   imageUrl?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  distanceKm?: number;
 }
 
 export interface Schedule {
@@ -50,6 +53,18 @@ export interface Appointment {
   time: string;
   status: AppointmentStatus;
   notes?: string;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+  };
+  client?: {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+  };
   business?: {
     id: number;
     name: string;

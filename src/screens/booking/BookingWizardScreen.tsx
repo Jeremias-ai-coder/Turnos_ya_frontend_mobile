@@ -8,9 +8,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import {
@@ -25,6 +25,7 @@ import { BusinessService, Schedule } from '../../types';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SlotPill } from '../../components/common/SlotPill';
+import { AuthRequiredModal } from '../../components/common/AuthRequiredModal';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -45,6 +46,15 @@ export const BookingWizardScreen: React.FC = () => {
 
   const [step, setStep] = useState<WizardStep>(1);
   const [loading, setLoading] = useState<boolean>(true);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(!user);
+
+  useEffect(() => {
+    if (!user) {
+      setShowAuthModal(true);
+    } else {
+      setShowAuthModal(false);
+    }
+  }, [user]);
 
   // Business Data
   const [services, setServices] = useState<BusinessService[]>([]);
@@ -365,14 +375,14 @@ export const BookingWizardScreen: React.FC = () => {
           <Button
             title="Ver Mis Turnos"
             size="lg"
-            onPress={() => navigation.navigate('AppointmentsTab')}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'AppointmentsTab' })}
             style={{ width: '100%', marginBottom: Spacing.md }}
           />
           <Button
             title="Volver al Inicio"
             variant="outline"
             size="lg"
-            onPress={() => navigation.navigate('HomeTab')}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
             style={{ width: '100%' }}
           />
         </View>
@@ -691,7 +701,13 @@ export const BookingWizardScreen: React.FC = () => {
             title="Continuar"
             size="lg"
             disabled={!selectedService}
-            onPress={() => setStep(2)}
+            onPress={() => {
+              if (!user) {
+                setShowAuthModal(true);
+                return;
+              }
+              setStep(2);
+            }}
           />
         )}
 
@@ -714,6 +730,23 @@ export const BookingWizardScreen: React.FC = () => {
           />
         )}
       </View>
+
+      {/* Modal Requerir Inicio de Sesión */}
+      <AuthRequiredModal
+        visible={showAuthModal}
+        onClose={() => {
+          setShowAuthModal(false);
+          navigation.goBack();
+        }}
+        onLogin={() => {
+          setShowAuthModal(false);
+          navigation.navigate('Login');
+        }}
+        onRegister={() => {
+          setShowAuthModal(false);
+          navigation.navigate('Register');
+        }}
+      />
     </SafeAreaView>
   );
 };

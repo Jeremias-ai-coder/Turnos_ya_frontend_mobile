@@ -22,7 +22,8 @@ export const getAutoDetectedBaseUrl = (): string => {
   const hostUri = Constants.expoConfig?.hostUri;
   if (hostUri) {
     const hostIp = hostUri.split(':')[0];
-    if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
+    // Solo usar hostIp si es una IP de LAN real (192.168.x.x), descartando interfaces virtuales como WSL/Hyper-V (172.x)
+    if (hostIp && hostIp.startsWith('192.168.')) {
       return `http://${hostIp}:3000/api/v1`;
     }
   }
@@ -39,7 +40,7 @@ export const STORAGE_KEYS = {
 
 const api = axios.create({
   baseURL: getAutoDetectedBaseUrl(),
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -50,9 +51,16 @@ api.interceptors.request.use(
   async (config) => {
     try {
       const customUrl = await AsyncStorage.getItem(STORAGE_KEYS.API_URL);
-      if (customUrl) {
+      // Validar que la URL personalizada no contenga IPs virtuales de WSL o localhost
+      if (
+        customUrl &&
+        !customUrl.includes('172.27.') &&
+        !customUrl.includes('172.17.') &&
+        !customUrl.includes('localhost') &&
+        !customUrl.includes('10.0.2.2')
+      ) {
         config.baseURL = customUrl;
-      } else if (!config.baseURL || config.baseURL.includes('10.0.2.2') || config.baseURL.includes('localhost')) {
+      } else {
         config.baseURL = getAutoDetectedBaseUrl();
       }
 
@@ -63,6 +71,7 @@ api.interceptors.request.use(
     } catch {
       // Ignorar fallos de lectura de storage
     }
+    console.log(`[API Req] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     return config;
   },
   (error) => Promise.reject(error)
@@ -70,8 +79,14 @@ api.interceptors.request.use(
 
 // Interceptor para manejar expiración de token
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`[API Res] ${response.status} ${response.config.url}`);
+    return response;
+  },
   async (error) => {
+    console.warn(
+      `[API Err] ${error.config?.baseURL}${error.config?.url} -> ${error.message}`
+    );
     if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
       try {
         await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);

@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
@@ -86,6 +86,30 @@ export const BusinessDetailScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
+
+  const handleBookingPress = (serviceId?: number) => {
+    if (!user) {
+      setPendingServiceId(serviceId);
+      setShowAuthModal(true);
+      return;
+    }
+    navigation.navigate('BookingWizard', {
+      businessId: business.id,
+      businessName: business.name,
+      businessAddress: business.address,
+      preselectedServiceId: serviceId,
+    });
+  };
+
+  const handleModalLogin = () => {
+    setShowAuthModal(false);
+    navigation.navigate('Login');
+  };
+
+  const handleModalRegister = () => {
+    setShowAuthModal(false);
+    navigation.navigate('Register');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -203,14 +227,7 @@ export const BusinessDetailScreen: React.FC = () => {
               <Button
                 title="Reservar"
                 size="sm"
-                onPress={() =>
-                  navigation.navigate('BookingWizard', {
-                    businessId: business.id,
-                    businessName: business.name,
-                    businessAddress: business.address,
-                    preselectedServiceId: service.id,
-                  })
-                }
+                onPress={() => handleBookingPress(service.id)}
               />
             </Card>
           ))
@@ -252,16 +269,18 @@ export const BusinessDetailScreen: React.FC = () => {
           <Button
             title="Reservar Turno"
             size="lg"
-            onPress={() =>
-              navigation.navigate('BookingWizard', {
-                businessId: business.id,
-                businessName: business.name,
-                businessAddress: business.address,
-              })
-            }
+            onPress={() => handleBookingPress()}
           />
         </View>
       )}
+
+      {/* Modal Requerir Inicio de Sesión */}
+      <AuthRequiredModal
+        visible={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onLogin={handleModalLogin}
+        onRegister={handleModalRegister}
+      />
     </SafeAreaView>
   );
 };
