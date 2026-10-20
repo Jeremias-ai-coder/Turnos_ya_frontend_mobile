@@ -5,12 +5,13 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
@@ -50,7 +51,7 @@ export const RegisterScreen: React.FC = () => {
 
       if (res.data.token && res.data.user) {
         await login(res.data.token, res.data.user);
-        navigation.navigate('HomeTab');
+        navigation.navigate('MainTabs', { screen: 'HomeTab' });
       } else {
         navigation.navigate('Login');
       }
@@ -86,6 +87,11 @@ export const RegisterScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brandContainer}>
+            <Image
+              source={require('../../../assets/brand/logo-color.png')}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.welcomeTitle}>Unite a Turnos Ya</Text>
             <Text style={styles.welcomeSubtitle}>
               Reservá en tus lugares favoritos y organizá tu agenda sin demoras
@@ -237,6 +243,11 @@ const styles = StyleSheet.create({
   brandContainer: {
     alignItems: 'center',
     marginBottom: Spacing.lg,
+  },
+  brandLogo: {
+    width: 170,
+    height: 48,
+    marginBottom: Spacing.sm,
   },
   welcomeTitle: {
     fontSize: Typography.sizes.xxl,

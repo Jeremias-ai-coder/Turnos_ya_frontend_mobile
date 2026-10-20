@@ -8,9 +8,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,11 +18,13 @@ import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import { useOwner } from '../../context/OwnerContext';
 import { STORAGE_KEYS, getAutoDetectedBaseUrl } from '../../services/api';
 
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user, logout } = useAuth();
+  const { isAdmin, setRoleMode } = useOwner();
 
   const [emailNotifs, setEmailNotifs] = useState(user?.emailNotifications ?? true);
   const [whatsappNotifs, setWhatsappNotifs] = useState(
@@ -33,7 +35,11 @@ export const ProfileScreen: React.FC = () => {
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEYS.API_URL).then((val) => {
-      setCustomApiUrl(val || getAutoDetectedBaseUrl());
+      if (val && !val.includes('172.27.') && !val.includes('localhost') && !val.includes('10.0.2.2')) {
+        setCustomApiUrl(val);
+      } else {
+        setCustomApiUrl(getAutoDetectedBaseUrl());
+      }
     });
   }, []);
 
@@ -123,6 +129,29 @@ export const ProfileScreen: React.FC = () => {
               />
             </View>
           </Card>
+        )}
+
+        {/* Admin Switcher to Owner Mode */}
+        {user && isAdmin && (
+          <View style={styles.adminBanner}>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <Ionicons name="shield-checkmark" size={16} color="#b45309" />
+                <Text style={styles.adminBannerTitle}>Acceso de Administrador</Text>
+              </View>
+              <Text style={styles.adminBannerSubtitle}>
+                Podés alternar al panel de Dueño (Owner) para gestionar turnos y negocios.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.adminBannerBtn}
+              onPress={() => setRoleMode('owner')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="storefront" size={15} color={Colors.white} />
+              <Text style={styles.adminBannerBtnText}>Panel Dueño</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Notifications Settings */}
@@ -360,5 +389,41 @@ const styles = StyleSheet.create({
     padding: Spacing.sm + 2,
     fontSize: Typography.sizes.sm,
     color: Colors.textMain,
+  },
+  adminBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: 8,
+  },
+  adminBannerTitle: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: '#92400e',
+  },
+  adminBannerSubtitle: {
+    fontSize: Typography.sizes.xs,
+    color: '#78350f',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  adminBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#d97706',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.md,
+    gap: 4,
+  },
+  adminBannerBtnText: {
+    color: Colors.white,
+    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.xs + 1,
   },
 });
