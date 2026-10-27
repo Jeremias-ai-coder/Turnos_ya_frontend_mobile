@@ -4,6 +4,8 @@ export interface User {
   email: string;
   role: 'USER' | 'BUSINESS_OWNER' | 'ADMIN' | string;
   phone?: string;
+  emailVerified?: boolean;
+  twoFactorEnabled?: boolean;
   emailNotifications?: boolean;
   whatsappNotifications?: boolean;
 }

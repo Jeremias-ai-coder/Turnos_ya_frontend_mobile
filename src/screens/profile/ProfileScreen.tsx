@@ -154,6 +154,82 @@ export const ProfileScreen: React.FC = () => {
           </View>
         )}
 
+        {/* Security Settings Section */}
+        {user && (
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionHeader}>Seguridad de la Cuenta</Text>
+            <Card style={styles.settingsCard}>
+              <View style={styles.settingRow}>
+                <View style={{ flex: 1, paddingRight: Spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons
+                      name="shield-checkmark"
+                      size={18}
+                      color={user.twoFactorEnabled ? Colors.success : Colors.primary}
+                    />
+                    <Text style={styles.settingLabel}>Google Authenticator (2FA)</Text>
+                  </View>
+                  <Text style={styles.settingDesc}>
+                    {user.twoFactorEnabled
+                      ? 'Nivel de protección alto activo. Se requiere código temporal al iniciar sesión.'
+                      : 'Protección estándar activa. Podés activar 2FA desde la versión web.'}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.securityPill,
+                    user.twoFactorEnabled ? styles.securityPillActive : styles.securityPillStandard,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.securityPillText,
+                      user.twoFactorEnabled ? styles.securityPillTextActive : styles.securityPillTextStandard,
+                    ]}
+                  >
+                    {user.twoFactorEnabled ? '2FA Activo' : 'Estándar'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.settingRow}>
+                <View style={{ flex: 1, paddingRight: Spacing.sm }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons
+                      name="mail-unread-outline"
+                      size={18}
+                      color={user.emailVerified ? Colors.success : '#d97706'}
+                    />
+                    <Text style={styles.settingLabel}>Correo Electrónico</Text>
+                  </View>
+                  <Text style={styles.settingDesc}>
+                    {user.emailVerified
+                      ? 'Verificado para restablecimiento de acceso y confirmaciones.'
+                      : 'Verificación de e-mail pendiente mediante código OTP.'}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.securityPill,
+                    user.emailVerified ? styles.securityPillActive : styles.securityPillWarning,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.securityPillText,
+                      user.emailVerified ? styles.securityPillTextActive : styles.securityPillTextWarning,
+                    ]}
+                  >
+                    {user.emailVerified ? 'Verificado' : 'Sin verificar'}
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          </View>
+        )}
+
         {/* Notifications Settings */}
         <View style={styles.sectionWrap}>
           <Text style={styles.sectionHeader}>Notificaciones y Recordatorios</Text>
@@ -425,5 +501,36 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontWeight: Typography.weights.bold,
     fontSize: Typography.sizes.xs + 1,
+  },
+  securityPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  securityPillActive: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+  },
+  securityPillStandard: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  securityPillWarning: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+  },
+  securityPillText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+  },
+  securityPillTextActive: {
+    color: '#059669',
+  },
+  securityPillTextStandard: {
+    color: '#64748b',
+  },
+  securityPillTextWarning: {
+    color: '#b45309',
   },
 });
