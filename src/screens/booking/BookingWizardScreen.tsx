@@ -392,7 +392,7 @@ export const BookingWizardScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.surface} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Top Header */}
       <View style={styles.header}>

@@ -66,7 +66,7 @@ export const RegisterScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.surface} />
+      <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

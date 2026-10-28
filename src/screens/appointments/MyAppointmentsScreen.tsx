@@ -145,7 +145,7 @@ export const MyAppointmentsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.surface} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Top Navbar */}
       <View style={styles.navBar}>

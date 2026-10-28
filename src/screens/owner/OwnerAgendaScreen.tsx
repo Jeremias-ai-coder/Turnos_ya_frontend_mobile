@@ -181,7 +181,7 @@ export const OwnerAgendaScreen: React.FC = () => {
   if (!selectedBusiness && businesses.length === 0) {
     return (
       <SafeAreaView edges={['top']} style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+        <StatusBar barStyle="light-content" />
         <View style={styles.headerHero}>
           <Image
             source={require('../../../assets/brand/logo-white.png')}
@@ -206,7 +206,7 @@ export const OwnerAgendaScreen: React.FC = () => {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+      <StatusBar barStyle="light-content" />
 
       <View style={styles.mainContainer}>
         {/* Celeste Hero Top Header */}

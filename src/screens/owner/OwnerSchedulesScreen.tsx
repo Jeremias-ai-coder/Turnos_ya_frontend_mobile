@@ -141,7 +141,7 @@ export const OwnerSchedulesScreen: React.FC = () => {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+      <StatusBar barStyle="light-content" />
 
       <View style={styles.mainContainer}>
         {/* Header Hero */}

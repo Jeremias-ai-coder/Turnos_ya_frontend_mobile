@@ -439,7 +439,7 @@ export const ProfileScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.surface} />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.navBar}>
         <Text style={styles.navTitle}>Mi Perfil</Text>
