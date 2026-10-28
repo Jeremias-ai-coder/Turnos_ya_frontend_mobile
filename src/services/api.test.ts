@@ -47,29 +47,14 @@ describe('api service and URL resolution (Unit Tests - Frontend Mobile)', () => 
       expect(getAutoDetectedBaseUrl()).toBe('http://localhost:3000/api/v1');
     });
 
-    it('debe detectar dinámicamente la IP de la LAN desde hostUri en dispositivos móviles', () => {
+    it('debe retornar CLOUD_API_URL por defecto en dispositivos móviles para compatibilidad 4G/Wi-Fi', () => {
       Platform.OS = 'android';
-      (Constants as any).expoConfig = {
-        hostUri: '192.168.1.45:8081',
-      };
-
-      expect(getAutoDetectedBaseUrl()).toBe('http://192.168.1.45:3000/api/v1');
+      expect(getAutoDetectedBaseUrl()).toBe('https://turnos-ya-backend-api.onrender.com/api/v1');
     });
 
-    it('debe ignorar IPs virtuales de WSL/Hyper-V (172.x) y caer en el fallback LAN', () => {
-      Platform.OS = 'android';
-      (Constants as any).expoConfig = {
-        hostUri: '172.27.16.1:8081',
-      };
-
-      expect(getAutoDetectedBaseUrl()).toBe('http://192.168.1.71:3000/api/v1');
-    });
-
-    it('debe usar el fallback de red local cuando hostUri está ausente', () => {
-      Platform.OS = 'android';
-      (Constants as any).expoConfig = {};
-
-      expect(getAutoDetectedBaseUrl()).toBe('http://192.168.1.71:3000/api/v1');
+    it('debe retornar CLOUD_API_URL en iOS para evitar problemas de firewall local', () => {
+      Platform.OS = 'ios';
+      expect(getAutoDetectedBaseUrl()).toBe('https://turnos-ya-backend-api.onrender.com/api/v1');
     });
   });
 });

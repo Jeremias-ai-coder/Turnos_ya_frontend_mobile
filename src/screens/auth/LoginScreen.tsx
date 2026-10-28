@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
+import { GoogleSignInButton } from '../../components/common/GoogleSignInButton';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 
@@ -311,6 +312,17 @@ export const LoginScreen: React.FC = () => {
                   style={{ marginTop: Spacing.sm }}
                 />
 
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>o bien</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <GoogleSignInButton
+                  buttonText="Continuar con Google"
+                  onSuccess={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
+                />
+
                 <View style={styles.footerLinkRow}>
                   <Text style={styles.footerText}>¿No tenés una cuenta?</Text>
                   <TouchableOpacity
@@ -581,6 +593,22 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     color: Colors.textSecondary,
     fontWeight: Typography.weights.semiBold,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Spacing.md,
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  dividerText: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.medium,
   },
   forgotBtn: {
     alignSelf: 'flex-end',

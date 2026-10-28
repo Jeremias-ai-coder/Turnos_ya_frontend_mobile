@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
+import { GoogleSignInButton } from '../../components/common/GoogleSignInButton';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 
@@ -46,7 +47,7 @@ export const RegisterScreen: React.FC = () => {
         email: email.trim(),
         password,
         phone: phone.trim() || undefined,
-        role: 'USER',
+        role: 'client',
       });
 
       if (res.data.token && res.data.user) {
@@ -200,6 +201,17 @@ export const RegisterScreen: React.FC = () => {
               style={{ marginTop: Spacing.md }}
             />
 
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>o bien</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <GoogleSignInButton
+              buttonText="Registrarme con Google"
+              onSuccess={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
+            />
+
             <View style={styles.footerLinkRow}>
               <Text style={styles.footerText}>¿Ya tenés una cuenta?</Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')}>
@@ -303,6 +315,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: Typography.sizes.md,
     color: Colors.textMain,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Spacing.md,
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  dividerText: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.medium,
   },
   footerLinkRow: {
     flexDirection: 'row',

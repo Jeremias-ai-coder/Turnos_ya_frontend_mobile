@@ -25,7 +25,12 @@ import { BugReportModal } from '../../components/common/BugReportModal';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useOwner } from '../../context/OwnerContext';
-import api, { STORAGE_KEYS, getAutoDetectedBaseUrl } from '../../services/api';
+import api, {
+  STORAGE_KEYS,
+  getAutoDetectedBaseUrl,
+  CLOUD_API_URL,
+  LOCAL_LAN_URL,
+} from '../../services/api';
 
 interface UserSessionItem {
   id: string;
@@ -45,6 +50,18 @@ export const ProfileScreen: React.FC = () => {
   const [emailNotifs, setEmailNotifs] = useState(user?.emailNotifications ?? true);
   const [whatsappNotifs, setWhatsappNotifs] = useState(user?.whatsappNotifications ?? false);
   const [savingNotifs, setSavingNotifs] = useState(false);
+
+  // Preferencias de Privacidad (estilo Web / Mercado Libre)
+  const [privacySharePhone, setPrivacySharePhone] = useState(false);
+  const [privacySystemNews, setPrivacySystemNews] = useState(true);
+  const [privacyProfilePublic, setPrivacyProfilePublic] = useState(true);
+
+  // Modal Edición de Datos Personales (Nombre y Teléfono)
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editProfileLoading, setEditProfileLoading] = useState(false);
+  const [editProfileError, setEditProfileError] = useState<string | null>(null);
 
   // Configuración de red para desarrolladores / QA
   const [customApiUrl, setCustomApiUrl] = useState('');
@@ -111,27 +128,82 @@ export const ProfileScreen: React.FC = () => {
       const res = await api.get('/auth/sessions');
       setSessions(res.data || []);
     } catch {
-      // Si la llamada falla no interrumpe el uso
+      // Ignorar fallos transitorios
     } finally {
       setSessionsLoading(false);
     }
   };
 
-  // Guardar URL de Servidor para QA
+  // Guardar URL de Servidor
   const handleSaveApiUrl = async () => {
     try {
       if (!customApiUrl.trim()) {
         await AsyncStorage.removeItem(STORAGE_KEYS.API_URL);
-        Alert.alert('Configuración', 'Se restauró la URL por defecto.');
+        setCustomApiUrl(getAutoDetectedBaseUrl());
+        Alert.alert('Configuración', 'Se restauró el servidor por defecto (Nube oficial).');
       } else {
         await AsyncStorage.setItem(STORAGE_KEYS.API_URL, customApiUrl.trim());
         Alert.alert(
           'Configuración Guardada',
-          'URL del servidor actualizada. Reiniciá la app si experimentás problemas.'
+          'URL del servidor actualizada correctamente.'
         );
       }
     } catch {
       Alert.alert('Error', 'No se pudo guardar la configuración.');
+    }
+  };
+
+  // Selector rápido de servidores (Nube vs Local)
+  const handleSelectServerPreset = async (url: string) => {
+    try {
+      setCustomApiUrl(url);
+      await AsyncStorage.setItem(STORAGE_KEYS.API_URL, url);
+      Alert.alert(
+        'Servidor Conectado',
+        url.includes('onrender')
+          ? 'Conectado a la Nube (Render). Compatible con 4G, 5G y Wi-Fi.'
+          : 'Conectado a la PC Local (192.168.1.71). Asegurate de estar en la misma red Wi-Fi.'
+      );
+    } catch {
+      Alert.alert('Error', 'No se pudo aplicar el servidor.');
+    }
+  };
+
+  // Guardar datos personales
+  const handleOpenEditProfile = () => {
+    setEditName(user?.name || '');
+    setEditPhone(user?.phone || '');
+    setEditProfileError(null);
+    setShowEditProfileModal(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      setEditProfileError('Por favor ingresá tu nombre.');
+      return;
+    }
+
+    setEditProfileLoading(true);
+    setEditProfileError(null);
+    try {
+      const res = await api.patch('/auth/profile', {
+        name: editName.trim(),
+        phone: editPhone.trim() || undefined,
+      });
+
+      if (user) {
+        updateUser({
+          ...user,
+          name: res.data.name || editName.trim(),
+          phone: res.data.phone || editPhone.trim(),
+        });
+      }
+      setShowEditProfileModal(false);
+      Alert.alert('Éxito', 'Tus datos personales fueron actualizados.');
+    } catch (err: any) {
+      setEditProfileError(err.response?.data?.message || 'Error al actualizar tus datos.');
+    } finally {
+      setEditProfileLoading(false);
     }
   };
 
@@ -155,7 +227,6 @@ export const ProfileScreen: React.FC = () => {
         });
       }
     } catch {
-      // Revertir si hubo error
       if (type === 'email') setEmailNotifs(!nextVal);
       if (type === 'whatsapp') setWhatsappNotifs(!nextVal);
       Alert.alert('Error', 'No se pudieron actualizar las preferencias de notificaciones.');
@@ -400,7 +471,6 @@ export const ProfileScreen: React.FC = () => {
         setPasswordLoading(false);
       }
     } else {
-      // Paso 2: Confirmar con código OTP
       if (passwordOtpCode.trim().length !== 6) {
         setPasswordError('Ingresá el código de 6 dígitos enviado a tu correo.');
         return;
@@ -437,6 +507,8 @@ export const ProfileScreen: React.FC = () => {
     );
   };
 
+  const isConnectedToCloud = customApiUrl.includes('onrender');
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
@@ -449,7 +521,7 @@ export const ProfileScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* User Info Card */}
+        {/* User Info Card con opción de edición */}
         {user ? (
           <Card style={styles.userCard}>
             <View style={styles.avatarWrap}>
@@ -458,9 +530,26 @@ export const ProfileScreen: React.FC = () => {
               </Text>
             </View>
             <View style={{ flex: 1, marginLeft: Spacing.md }}>
-              <Text style={styles.userName}>{user.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.userName}>{user.name}</Text>
+                <TouchableOpacity
+                  style={styles.editProfileBtn}
+                  onPress={handleOpenEditProfile}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="create-outline" size={18} color={Colors.primary} />
+                </TouchableOpacity>
+              </View>
+
               <Text style={styles.userEmail}>{user.email}</Text>
-              {user.phone ? <Text style={styles.userPhone}>{user.phone}</Text> : null}
+              {user.phone ? (
+                <Text style={styles.userPhone}>📞 {user.phone}</Text>
+              ) : (
+                <TouchableOpacity onPress={handleOpenEditProfile}>
+                  <Text style={[styles.userPhone, { color: Colors.primary }]}>+ Agregar teléfono</Text>
+                </TouchableOpacity>
+              )}
+
               <View style={styles.roleRow}>
                 <View style={styles.roleBadge}>
                   <Text style={styles.roleText}>{user.role || 'CLIENTE'}</Text>
@@ -782,6 +871,61 @@ export const ProfileScreen: React.FC = () => {
           </Card>
         </View>
 
+        {/* Privacidad de la Cuenta (Estilo Web / Mercado Libre) */}
+        <View style={styles.sectionWrap}>
+          <Text style={styles.sectionHeader}>Privacidad de la Cuenta</Text>
+          <Card style={styles.settingsCard}>
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1, paddingRight: Spacing.sm }}>
+                <Text style={styles.settingLabel}>Compartir Teléfono con Negocios</Text>
+                <Text style={styles.settingDesc}>
+                  Permite que los locales te contacten directamente si surge algún cambio o reprogramación
+                </Text>
+              </View>
+              <Switch
+                value={privacySharePhone}
+                onValueChange={setPrivacySharePhone}
+                trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+                thumbColor={privacySharePhone ? Colors.primary : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1, paddingRight: Spacing.sm }}>
+                <Text style={styles.settingLabel}>Avisos del Sistema</Text>
+                <Text style={styles.settingDesc}>
+                  Novedades importantes sobre tu cuenta y mejoras de la plataforma
+                </Text>
+              </View>
+              <Switch
+                value={privacySystemNews}
+                onValueChange={setPrivacySystemNews}
+                trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+                thumbColor={privacySystemNews ? Colors.primary : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1, paddingRight: Spacing.sm }}>
+                <Text style={styles.settingLabel}>Visibilidad Básica de Perfil</Text>
+                <Text style={styles.settingDesc}>
+                  Permite mostrar tu nombre a los profesionales al momento de reservar
+                </Text>
+              </View>
+              <Switch
+                value={privacyProfilePublic}
+                onValueChange={setPrivacyProfilePublic}
+                trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+                thumbColor={privacyProfilePublic ? Colors.primary : '#f4f3f4'}
+              />
+            </View>
+          </Card>
+        </View>
+
         {/* Support & Help Section */}
         <View style={styles.sectionWrap}>
           <Text style={styles.sectionHeader}>Ayuda y Soporte</Text>
@@ -811,7 +955,14 @@ export const ProfileScreen: React.FC = () => {
             style={styles.devHeaderToggle}
             onPress={() => setShowConfig(!showConfig)}
           >
-            <Text style={styles.sectionHeader}>Conexión con el Servidor API</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.sectionHeader}>Servidor y Base de Datos</Text>
+              <View style={[styles.serverPill, isConnectedToCloud ? styles.serverPillCloud : styles.serverPillLocal]}>
+                <Text style={[styles.serverPillText, isConnectedToCloud ? styles.serverPillTextCloud : styles.serverPillTextLocal]}>
+                  {isConnectedToCloud ? '🌐 Nube (Render)' : '💻 PC Local'}
+                </Text>
+              </View>
+            </View>
             <Ionicons
               name={showConfig ? 'chevron-up' : 'chevron-down'}
               size={18}
@@ -822,21 +973,47 @@ export const ProfileScreen: React.FC = () => {
           {showConfig && (
             <Card style={styles.settingsCard}>
               <Text style={styles.configHelpText}>
-                Para probar en un celular físico vía Expo Go, ingresá la IP local de tu PC (ej: http://192.168.1.50:3000/api/v1).
+                Elegí a qué backend conectar tu app. Para celulares en 4G o fuera de la red local, utilizá la Nube.
               </Text>
+
+              {/* Botones rápidos de 1 toque */}
+              <View style={styles.presetButtonsRow}>
+                <TouchableOpacity
+                  style={[styles.presetBtn, isConnectedToCloud && styles.presetBtnActive]}
+                  onPress={() => handleSelectServerPreset(CLOUD_API_URL)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="cloud-done-outline" size={18} color={isConnectedToCloud ? Colors.white : Colors.primary} />
+                  <Text style={[styles.presetBtnText, isConnectedToCloud && styles.presetBtnTextActive]}>
+                    Nube (Render)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.presetBtn, !isConnectedToCloud && styles.presetBtnActive]}
+                  onPress={() => handleSelectServerPreset(LOCAL_LAN_URL)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="laptop-outline" size={18} color={!isConnectedToCloud ? Colors.white : Colors.primary} />
+                  <Text style={[styles.presetBtnText, !isConnectedToCloud && styles.presetBtnTextActive]}>
+                    PC Local (Wi-Fi)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               <TextInput
                 style={styles.configInput}
-                placeholder="http://192.168.X.X:3000/api/v1"
+                placeholder="https://..."
                 placeholderTextColor={Colors.textDisabled}
                 value={customApiUrl}
                 onChangeText={setCustomApiUrl}
                 autoCapitalize="none"
               />
               <Button
-                title="Guardar URL del Servidor"
+                title="Guardar URL Manual"
                 size="sm"
                 onPress={handleSaveApiUrl}
-                style={{ marginTop: Spacing.sm }}
+                style={{ marginTop: Spacing.xs }}
               />
             </Card>
           )}
@@ -856,6 +1033,86 @@ export const ProfileScreen: React.FC = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* ============================================================== */}
+      {/* MODAL EDICIÓN DE DATOS PERSONALES (NOMBRE Y TELÉFONO)          */}
+      {/* ============================================================== */}
+      <Modal
+        visible={showEditProfileModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditProfileModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalCard}>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setShowEditProfileModal(false)}
+                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              >
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+
+              <View style={styles.modalIconWrap}>
+                <Ionicons name="person-outline" size={28} color={Colors.primary} />
+              </View>
+              <Text style={styles.modalTitle}>Editar Datos Personales</Text>
+              <Text style={styles.modalSubtitle}>
+                Actualizá tu nombre y número de teléfono para que los comercios puedan identificarte.
+              </Text>
+
+              {editProfileError ? (
+                <View style={styles.modalErrorBox}>
+                  <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+                  <Text style={styles.modalErrorText}>{editProfileError}</Text>
+                </View>
+              ) : null}
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nombre y Apellido</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Tu nombre completo"
+                  placeholderTextColor={Colors.textDisabled}
+                  value={editName}
+                  onChangeText={setEditName}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Número de Teléfono / WhatsApp</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="+54 9 11 1234-5678"
+                  placeholderTextColor={Colors.textDisabled}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <Button
+                title="Guardar Cambios"
+                size="md"
+                loading={editProfileLoading}
+                onPress={handleSaveProfile}
+                style={{ marginTop: Spacing.sm }}
+              />
+
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowEditProfileModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       {/* ============================================================== */}
       {/* MODAL 2FA (GOOGLE AUTHENTICATOR)                               */}
@@ -1322,6 +1579,10 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
     color: Colors.textTitle,
+    flex: 1,
+  },
+  editProfileBtn: {
+    padding: 4,
   },
   userEmail: {
     fontSize: Typography.sizes.sm,
@@ -1329,7 +1590,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   userPhone: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.xs + 1,
     color: Colors.textSecondary,
     marginTop: 2,
   },
@@ -1407,6 +1668,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xs,
   },
+  serverPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  serverPillCloud: {
+    backgroundColor: '#ecfdf5',
+  },
+  serverPillLocal: {
+    backgroundColor: '#eff6ff',
+  },
+  serverPillText: {
+    fontSize: 11,
+    fontWeight: Typography.weights.bold,
+  },
+  serverPillTextCloud: {
+    color: '#059669',
+  },
+  serverPillTextLocal: {
+    color: Colors.primary,
+  },
+  presetButtonsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  presetBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceAlt,
+  },
+  presetBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  presetBtnText: {
+    fontSize: Typography.sizes.xs + 1,
+    fontWeight: Typography.weights.bold,
+    color: Colors.primary,
+  },
+  presetBtnTextActive: {
+    color: Colors.white,
+  },
   settingsCard: {
     padding: Spacing.md,
   },
@@ -1449,8 +1761,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderInput,
     borderRadius: BorderRadius.md,
     padding: Spacing.sm + 2,
-    fontSize: Typography.sizes.sm,
+    fontSize: Typography.sizes.xs + 1,
     color: Colors.textMain,
+    marginTop: Spacing.xs,
   },
   adminBanner: {
     flexDirection: 'row',
