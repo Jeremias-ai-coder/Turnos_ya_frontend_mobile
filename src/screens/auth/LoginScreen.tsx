@@ -11,6 +11,8 @@ import {
   Platform,
   ScrollView,
   Image,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +37,13 @@ export const LoginScreen: React.FC = () => {
   const [requireTwoFactor, setRequireTwoFactor] = useState(false);
   const [tempToken, setTempToken] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
+
+  // Estados para Recuperación de Contraseña
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotError, setForgotError] = useState('');
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -103,6 +112,32 @@ export const LoginScreen: React.FC = () => {
     setTempToken('');
     setTwoFactorCode('');
     setError('');
+  };
+
+  const handleOpenForgotModal = () => {
+    setForgotEmail(email.trim());
+    setForgotError('');
+    setForgotSuccess(false);
+    setShowForgotModal(true);
+  };
+
+  const handleForgotSubmit = async () => {
+    if (!forgotEmail.trim()) {
+      setForgotError('Ingresá tu correo electrónico.');
+      return;
+    }
+    setForgotError('');
+    setForgotLoading(true);
+    try {
+      await api.post('/auth/forgot-password', { email: forgotEmail.trim() });
+      setForgotSuccess(true);
+    } catch (err: any) {
+      setForgotError(
+        err.response?.data?.message || 'No se pudo procesar la solicitud. Verificá el correo.'
+      );
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   return (
@@ -260,12 +295,20 @@ export const LoginScreen: React.FC = () => {
                   </View>
                 </View>
 
+                <TouchableOpacity
+                  style={styles.forgotBtn}
+                  onPress={handleOpenForgotModal}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.forgotBtnText}>¿Olvidaste tu contraseña?</Text>
+                </TouchableOpacity>
+
                 <Button
                   title="Ingresar"
                   size="lg"
                   loading={loading}
                   onPress={handleLogin}
-                  style={{ marginTop: Spacing.md }}
+                  style={{ marginTop: Spacing.sm }}
                 />
 
                 <View style={styles.footerLinkRow}>
@@ -281,6 +324,98 @@ export const LoginScreen: React.FC = () => {
           </Card>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal de Recuperación de Contraseña */}
+      <Modal
+        visible={showForgotModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowForgotModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalCard}>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setShowForgotModal(false)}
+                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              >
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+
+              {!forgotSuccess ? (
+                <>
+                  <View style={styles.modalIconWrap}>
+                    <Ionicons name="key-outline" size={28} color={Colors.primary} />
+                  </View>
+                  <Text style={styles.modalTitle}>Recuperar Contraseña</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Ingresá el correo electrónico asociado a tu cuenta y te enviaremos las instrucciones para restablecerla.
+                  </Text>
+
+                  {forgotError ? (
+                    <View style={styles.modalErrorBox}>
+                      <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+                      <Text style={styles.modalErrorText}>{forgotError}</Text>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Correo Electrónico</Text>
+                    <View style={styles.inputWrap}>
+                      <Ionicons name="mail-outline" size={18} color={Colors.textSecondary} />
+                      <TextInput
+                        style={styles.input}
+                        placeholder="tu-correo@ejemplo.com"
+                        placeholderTextColor={Colors.textDisabled}
+                        value={forgotEmail}
+                        onChangeText={setForgotEmail}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        autoFocus
+                      />
+                    </View>
+                  </View>
+
+                  <Button
+                    title="Enviar Instrucciones"
+                    size="md"
+                    loading={forgotLoading}
+                    onPress={handleForgotSubmit}
+                    style={{ marginTop: Spacing.md }}
+                  />
+
+                  <TouchableOpacity
+                    style={styles.modalCancelBtn}
+                    onPress={() => setShowForgotModal(false)}
+                  >
+                    <Text style={styles.modalCancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={{ alignItems: 'center', paddingVertical: Spacing.md }}>
+                  <View style={[styles.modalIconWrap, { backgroundColor: '#ecfdf5' }]}>
+                    <Ionicons name="checkmark-circle" size={32} color={Colors.success} />
+                  </View>
+                  <Text style={styles.modalTitle}>¡Instrucciones enviadas!</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Si <Text style={{ fontWeight: 'bold' }}>{forgotEmail}</Text> está registrado en Turnos Ya, recibirás un correo con el enlace para restablecer tu contraseña en minutos.
+                  </Text>
+                  <Button
+                    title="Entendido"
+                    size="md"
+                    onPress={() => setShowForgotModal(false)}
+                    style={{ width: '100%', marginTop: Spacing.lg }}
+                  />
+                </View>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -446,5 +581,95 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     color: Colors.textSecondary,
     fontWeight: Typography.weights.semiBold,
+  },
+  forgotBtn: {
+    alignSelf: 'flex-end',
+    marginTop: 6,
+    marginBottom: Spacing.xs,
+    paddingVertical: 4,
+  },
+  forgotBtnText: {
+    fontSize: Typography.sizes.xs + 1,
+    color: Colors.primary,
+    fontWeight: Typography.weights.semiBold,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  modalContainer: {
+    width: '100%',
+    maxWidth: 420,
+  },
+  modalCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+    position: 'relative',
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    top: Spacing.md,
+    right: Spacing.md,
+    zIndex: 10,
+    padding: 6,
+  },
+  modalIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: BorderRadius.full,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: Spacing.md,
+  },
+  modalTitle: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textTitle,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  modalSubtitle: {
+    fontSize: Typography.sizes.xs + 1,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: Spacing.lg,
+  },
+  modalErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
+    gap: 6,
+  },
+  modalErrorText: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.danger,
+    flex: 1,
+  },
+  modalCancelBtn: {
+    alignItems: 'center',
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  modalCancelText: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.medium,
   },
 });

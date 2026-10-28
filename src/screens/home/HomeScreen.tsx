@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../../services/api';
+import { cachedGet } from '../../services/apiCache';
 import { Business, Category } from '../../types';
 import { BusinessCard } from '../../components/business/BusinessCard';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
@@ -36,6 +37,9 @@ const DEFAULT_CATEGORIES = [
   'Deportes',
   'Trámites',
   'Mascotas',
+  'Gastronomía',
+  'Educación',
+  'Automotor',
   'Otros',
 ];
 
@@ -61,10 +65,10 @@ export const HomeScreen: React.FC = () => {
   const [locatingUser, setLocatingUser] = useState<boolean>(false);
   const [locationLabel, setLocationLabel] = useState<string>('Cerca de ti');
 
-  const fetchBusinesses = async () => {
+  const fetchBusinesses = async (forceRefresh = false) => {
     setErrorMsg('');
     try {
-      const res = await api.get('/businesses');
+      const res = await cachedGet<any>('/businesses', { ttlSeconds: 60, forceRefresh });
       const raw = res.data?.data ?? res.data;
       const data = Array.isArray(raw) ? raw : [];
       setBusinesses(data);
@@ -83,9 +87,9 @@ export const HomeScreen: React.FC = () => {
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (forceRefresh = false) => {
     try {
-      const res = await api.get('/categories');
+      const res = await cachedGet<any>('/categories', { ttlSeconds: 300, forceRefresh });
       const raw = res.data?.data ?? res.data;
       if (Array.isArray(raw) && raw.length > 0) {
         setCategories(['Todos', ...raw.map((c: Category) => c.name)]);
@@ -102,7 +106,8 @@ export const HomeScreen: React.FC = () => {
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchBusinesses();
+    fetchBusinesses(true);
+    fetchCategories(true);
   };
 
   const handleToggleProximity = async () => {
@@ -432,7 +437,7 @@ export const HomeScreen: React.FC = () => {
                     <Text style={styles.emptySubtitle}>{errorMsg}</Text>
                     <TouchableOpacity
                       style={[styles.clearFiltersBtn, { backgroundColor: Colors.primary }]}
-                      onPress={fetchBusinesses}
+                      onPress={() => fetchBusinesses(true)}
                     >
                       <Text style={[styles.clearFiltersText, { color: Colors.white }]}>
                         Reintentar Conexión

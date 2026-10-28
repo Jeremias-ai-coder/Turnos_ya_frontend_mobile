@@ -12,6 +12,7 @@
     "axios": "^1.20.0",
     "date-fns": "^4.4.0",
     "expo": "~57.0.30",
+    "expo-clipboard": "~7.0.1",
     "expo-constants": "~57.0.22",
     "expo-location": "~57.0.21",
     "expo-status-bar": "~57.0.1",
