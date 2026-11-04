@@ -1,39 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80" fill="none">
-  <!-- Isotipo -->
-  <g transform="translate(6, 8)">
-    
-  <!-- Calendar Hanger Loops -->
-  <rect x="27" y="6" width="9" height="18" rx="4.5" fill="#0f172a" />
-  <rect x="64" y="6" width="9" height="18" rx="4.5" fill="#0f172a" />
-
-  <!-- Calendar Main Outer Shell -->
-  <rect x="13" y="16" width="74" height="72" rx="16" fill="#ffffff" stroke="#0f172a" stroke-width="6" stroke-linejoin="round" />
-
-  <!-- Header Bar Divider -->
-  <line x1="16" y1="35" x2="84" y2="35" stroke="#0f172a" stroke-width="5" stroke-linecap="round" />
-
-  <!-- Calendar Grid (Subtle, balanced) -->
-  <line x1="37" y1="46" x2="37" y2="76" stroke="rgba(15, 23, 42, 0.2)" stroke-width="3" stroke-linecap="round" />
-  <line x1="63" y1="46" x2="63" y2="76" stroke="rgba(15, 23, 42, 0.2)" stroke-width="3" stroke-linecap="round" />
-  <line x1="23" y1="53" x2="77" y2="53" stroke="rgba(15, 23, 42, 0.2)" stroke-width="3" stroke-linecap="round" />
-  <line x1="23" y1="67" x2="52" y2="67" stroke="rgba(15, 23, 42, 0.2)" stroke-width="3" stroke-linecap="round" />
-
-  <!-- Speed Trails on Bottom-Left -->
-  <path d="M5 74h10" stroke="#009ee3" stroke-width="3.5" stroke-linecap="round" />
-  <path d="M2 81h14" stroke="#009ee3" stroke-width="4" stroke-linecap="round" />
-  <path d="M6 88h10" stroke="#009ee3" stroke-width="3.5" stroke-linecap="round" />
-
-  <!-- Dynamic Swoosh Body (smooth curve) -->
-  <path d="M11 86C26 86 48 82 66 67C76 58 82 49 85 41" stroke="#009ee3" stroke-width="7" stroke-linecap="round" />
-
-  <!-- Dynamic Arrowhead -->
-  <path d="M72 38L93 34L87 55L82 45Z" fill="#009ee3" stroke="#009ee3" stroke-width="2" stroke-linejoin="round" />
-
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 54" width="240" height="54" fill="none">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800;900&amp;display=swap');
+      .txt-turnos {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.8px;
+      }
+      .txt-ya {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        font-size: 26px;
+        font-weight: 900;
+        letter-spacing: -0.3px;
+      }
+    </style>
+    <filter id="badge-shadow-color" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.18" />
+    </filter>
+  </defs>
 
   <!-- Text: Turnos -->
-  <text x="106" y="54" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-size="38" font-weight="800" letter-spacing="-0.5" fill="#0f172a">Turnos</text>
+  <text x="6" y="38" class="txt-turnos" fill="#0f172a">Turnos</text>
 
-  <!-- Text: Ya -->
-  <text x="246" y="54" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-size="38" font-weight="900" letter-spacing="-0.3" fill="#009ee3">Ya</text>
+  <!-- Speed Badge Capsule -->
+  <g transform="translate(138, 10)">
+    <!-- Skewed Badge Background -->
+    <rect x="0" y="0" width="86" height="34" rx="9" fill="#009ee3" transform="skewX(-10)" filter="url(#badge-shadow-color)" />
+
+    <!-- Unskewed Content Inside Badge -->
+    <g transform="translate(10, 0)">
+      <text x="5" y="25" class="txt-ya" fill="#ffffff">Ya</text>
+      <!-- Checkmark -->
+      <polyline points="48,12 55,21 68,9" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+    </g>
+  </g>
 </svg>
