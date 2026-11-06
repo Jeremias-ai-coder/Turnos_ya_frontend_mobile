@@ -1,3 +1,4 @@
+import { BrandLogo } from '../../components/common/BrandLogo';
 import React, { useState } from 'react';
 import {
   View,
@@ -173,11 +174,7 @@ export const LoginScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brandContainer}>
-            <Image
-              source={require('../../../assets/brand/logo-color.png')}
-              style={styles.brandLogo}
-              resizeMode="contain"
-            />
+            <BrandLogo variant="color" size="lg" style={{ marginBottom: 16 }} />
             <Text style={styles.welcomeTitle}>
               {requireTwoFactor ? 'Paso de Seguridad' : '¡Hola de nuevo!'}
             </Text>

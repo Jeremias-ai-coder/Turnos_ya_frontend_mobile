@@ -1,3 +1,4 @@
+import { BrandLogo } from '../../components/common/BrandLogo';
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
@@ -224,11 +225,7 @@ export const HomeScreen: React.FC = () => {
         <View style={styles.heroSection}>
           {/* Top Navbar Header */}
           <View style={styles.topHeader}>
-            <Image
-              source={require('../../../assets/brand/logo-white.png')}
-              style={styles.brandLogo}
-              resizeMode="contain"
-            />
+            <BrandLogo variant="white" size="md" />
 
             <View style={styles.headerRight}>
               {user ? (
