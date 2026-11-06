@@ -1,4 +1,5 @@
 import { BrandLogo } from '../../components/common/BrandLogo';
+import { NotificationBell } from '../../components/common/NotificationBell';
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
@@ -231,6 +232,7 @@ export const HomeScreen: React.FC = () => {
               {user ? (
                 <Text style={styles.userNameText}>¡Hola, {user.name.split(' ')[0]}!</Text>
               ) : null}
+              <NotificationBell color={Colors.white} size={22} />
               <TouchableOpacity
                 style={styles.avatarButton}
                 onPress={() => navigation.navigate('ProfileTab')}

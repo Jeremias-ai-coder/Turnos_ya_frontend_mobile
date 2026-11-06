@@ -20,9 +20,11 @@ import { Appointment } from '../../types';
 import { Card } from '../../components/common/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Button } from '../../components/common/Button';
+import { NotificationBell } from '../../components/common/NotificationBell';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import { formatTimeToHHMM } from '../../utils/timeHelper';
+import { formatTimeToHHMM, getHoursUntilAppointment } from '../../utils/timeHelper';
+import { triggerNotificationSync } from '../../services/notificationService';
 
 type AppointmentTab = 'UPCOMING' | 'HISTORY';
 
@@ -68,6 +70,20 @@ export const MyAppointmentsScreen: React.FC = () => {
   };
 
   const handleCancelAppointment = (appointment: Appointment) => {
+    const hoursUntil = getHoursUntilAppointment(appointment.date, appointment.time);
+    const minNoticeHours = Math.max(
+      24,
+      appointment.service?.minCancellationNoticeHours || 24
+    );
+
+    if (hoursUntil < minNoticeHours) {
+      Alert.alert(
+        'Cancelación no permitida',
+        `Por política de servicio, solo es posible cancelar reservas con al menos ${minNoticeHours} horas de anticipación.\n\nPara cualquier aviso urgente o cambio de último momento, por favor comunicate directamente con el comercio.`
+      );
+      return;
+    }
+
     Alert.alert(
       'Cancelar Turno',
       '¿Estás seguro de que deseás cancelar este turno?',
@@ -79,7 +95,10 @@ export const MyAppointmentsScreen: React.FC = () => {
           onPress: async () => {
             setCancellingId(appointment.id);
             try {
-              await api.patch(`/appointments/${appointment.id}/cancel`);
+              await api.patch(`/appointments/${appointment.id}/cancel`, {
+                reason: 'Cancelado por el cliente desde la app móvil',
+              });
+              triggerNotificationSync();
               Alert.alert('Turno cancelado', 'Tu reserva ha sido cancelada.');
               fetchAppointments();
             } catch (err: any) {
@@ -150,6 +169,7 @@ export const MyAppointmentsScreen: React.FC = () => {
       {/* Top Navbar */}
       <View style={styles.navBar}>
         <Text style={styles.navTitle}>Mis Turnos</Text>
+        <NotificationBell color={Colors.textTitle} size={22} />
       </View>
 
       {/* Tabs */}
@@ -224,8 +244,15 @@ export const MyAppointmentsScreen: React.FC = () => {
               }
 
               const timeFormatted = formatTimeToHHMM(item.time);
-              const canCancel =
+              const hoursUntil = getHoursUntilAppointment(item.date, item.time);
+              const minNoticeHours = Math.max(
+                24,
+                item.service?.minCancellationNoticeHours || 24
+              );
+              const isUpcomingActive =
                 item.status === 'PENDING' || item.status === 'CONFIRMED';
+              const canCancel = isUpcomingActive && hoursUntil >= minNoticeHours;
+              const isTooLateToCancel = isUpcomingActive && hoursUntil < minNoticeHours;
 
               return (
                 <Card style={styles.appointmentCard}>
@@ -305,6 +332,27 @@ export const MyAppointmentsScreen: React.FC = () => {
                       />
                     </View>
                   )}
+
+                  {isTooLateToCancel && (
+                    <View style={styles.cardFooter}>
+                      <TouchableOpacity
+                        style={styles.noticeBox}
+                        activeOpacity={0.7}
+                        onPress={() =>
+                          Alert.alert(
+                            'Política de Cancelación',
+                            `Las reservas solo pueden cancelarse con un mínimo de ${minNoticeHours} horas de anticipación.\n\nFaltan menos de 24 horas para el turno. Ante cualquier imprevisto, comunicate directamente con ${item.business?.name || 'el comercio'}.`
+                          )
+                        }
+                      >
+                        <Ionicons name="information-circle-outline" size={16} color="#b45309" />
+                        <Text style={styles.noticeText}>
+                          Cancelación no disponible (&lt; 24h de anticipación)
+                        </Text>
+                        <Ionicons name="chevron-forward" size={13} color="#b45309" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </Card>
               );
             }}
@@ -353,6 +401,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   navTitle: {
     fontSize: Typography.sizes.xl,
@@ -463,6 +514,24 @@ const styles = StyleSheet.create({
     borderColor: Colors.statusCancelledBorder,
     backgroundColor: Colors.statusCancelledBg,
   },
+  noticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.xs + 3,
+    paddingHorizontal: Spacing.sm + 2,
+    gap: 6,
+    width: '100%',
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.medium,
+    color: '#92400e',
+  },
   centerLoading: {
     flex: 1,
     alignItems: 'center',
@@ -514,3 +583,4 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
 });
+
