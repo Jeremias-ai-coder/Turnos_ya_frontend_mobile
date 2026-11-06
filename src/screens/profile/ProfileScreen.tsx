@@ -92,16 +92,21 @@ export const ProfileScreen: React.FC = () => {
   const [emailVerifyLoading, setEmailVerifyLoading] = useState(false);
   const [emailVerifyError, setEmailVerifyError] = useState<string | null>(null);
 
-  // Modal Cambio de Contraseña
+  // Modal Cambio de Contraseña Seguro Multi-Paso
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
-  const [passwordChangeStep, setPasswordChangeStep] = useState<'inputs' | 'code'>('inputs');
+  const [passwordChangeStep, setPasswordChangeStep] = useState<
+    'no_methods' | 'choose_method' | 'verify_email' | 'verify_2fa' | 'set_passwords'
+  >('verify_email');
   const [passwordConfirmToken, setPasswordConfirmToken] = useState<string | null>(null);
   const [passwordOtpCode, setPasswordOtpCode] = useState('');
+  const [password2faCode, setPassword2faCode] = useState('');
+  const [changeAuthToken, setChangeAuthToken] = useState<string | null>(null);
+  const [qaPasswordCode, setQaPasswordCode] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
@@ -423,74 +428,164 @@ export const ProfileScreen: React.FC = () => {
   };
 
   // ==============================================================
-  // CAMBIO DE CONTRASEÑA
+  // CAMBIO DE CONTRASEÑA SEGURO CON VERIFICACIÓN MULTI-FACTOR
   // ==============================================================
-  const handleOpenPasswordModal = () => {
+  const handleOpenPasswordModal = async () => {
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
     setPasswordOtpCode('');
+    setPassword2faCode('');
     setPasswordConfirmToken(null);
-    setPasswordChangeStep('inputs');
+    setChangeAuthToken(null);
+    setQaPasswordCode(null);
     setPasswordError(null);
+
+    const hasEmail = Boolean(user?.emailVerified);
+    const has2FA = Boolean(user?.twoFactorEnabled);
+
+    if (!hasEmail && !has2FA) {
+      setPasswordChangeStep('no_methods');
+      setShowPasswordModal(true);
+      return;
+    }
+
+    if (hasEmail && has2FA) {
+      setPasswordChangeStep('choose_method');
+      setShowPasswordModal(true);
+      return;
+    }
+
+    if (has2FA && !hasEmail) {
+      setPasswordChangeStep('verify_2fa');
+      setShowPasswordModal(true);
+      return;
+    }
+
+    // Solo correo electrónico verificado
     setShowPasswordModal(true);
+    setPasswordLoading(true);
+    try {
+      const res = await api.post('/auth/request-password-change-code');
+      setPasswordConfirmToken(res.data.confirmationToken);
+      setQaPasswordCode(res.data.qaCode || null);
+      setPasswordChangeStep('verify_email');
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.message || 'No se pudo enviar el código por correo.');
+      setPasswordChangeStep('verify_email');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
-  const handleSubmitPasswordChange = async () => {
+  const handleChooseEmailMethod = async () => {
+    setPasswordLoading(true);
+    setPasswordError(null);
+    try {
+      const res = await api.post('/auth/request-password-change-code');
+      setPasswordConfirmToken(res.data.confirmationToken);
+      setQaPasswordCode(res.data.qaCode || null);
+      setPasswordChangeStep('verify_email');
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.message || 'No se pudo enviar el código por correo.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleChoose2FAMethod = () => {
+    setPasswordError(null);
+    setPassword2faCode('');
+    setPasswordChangeStep('verify_2fa');
+  };
+
+  const handleVerifyPasswordEmailCode = async () => {
+    const code = passwordOtpCode.trim();
+    if (code.length !== 6) {
+      setPasswordError('Ingresá el código de 6 dígitos enviado a tu correo.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    setPasswordError(null);
+    try {
+      const res = await api.post('/auth/verify-password-change-code', {
+        confirmationToken: passwordConfirmToken,
+        code,
+      });
+      setChangeAuthToken(res.data.changeAuthToken);
+      setPasswordChangeStep('set_passwords');
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.message || 'Código incorrecto o expirado.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleVerifyPassword2FACode = async () => {
+    const code = password2faCode.trim().replace(/\s+/g, '');
+    if (code.length < 6) {
+      setPasswordError('Ingresá el código de 6 dígitos de Google Authenticator.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    setPasswordError(null);
+    try {
+      const res = await api.post('/auth/verify-password-change-2fa', { code });
+      setChangeAuthToken(res.data.changeAuthToken);
+      setPasswordChangeStep('set_passwords');
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.message || 'Código de Authenticator incorrecto o expirado.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleResendPasswordEmailCode = async () => {
+    setPasswordLoading(true);
+    setPasswordError(null);
+    try {
+      const res = await api.post('/auth/request-password-change-code');
+      setPasswordConfirmToken(res.data.confirmationToken);
+      setQaPasswordCode(res.data.qaCode || null);
+      Alert.alert('Código enviado', 'Enviamos un nuevo código de 6 dígitos a tu correo.');
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.message || 'No se pudo reenviar el código.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleFinalizePasswordChange = async () => {
     setPasswordError(null);
 
-    if (passwordChangeStep === 'inputs') {
-      if (!currentPassword || !newPassword || !confirmPassword) {
-        setPasswordError('Completá todos los campos.');
-        return;
-      }
-      if (newPassword.length < 6) {
-        setPasswordError('La nueva contraseña debe tener al menos 6 caracteres.');
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        setPasswordError('Las nuevas contraseñas no coinciden.');
-        return;
-      }
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Completá todos los campos.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('La nueva contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Las nuevas contraseñas no coinciden.');
+      return;
+    }
 
-      setPasswordLoading(true);
-      try {
-        const res = await api.patch('/auth/change-password', {
-          currentPassword,
-          newPassword,
-        });
-
-        if (res.data?.confirmationToken) {
-          setPasswordConfirmToken(res.data.confirmationToken);
-          setPasswordChangeStep('code');
-        } else {
-          setShowPasswordModal(false);
-          Alert.alert('Éxito', res.data?.message || 'Tu contraseña fue actualizada.');
-        }
-      } catch (err: any) {
-        setPasswordError(err.response?.data?.message || 'No se pudo cambiar la contraseña.');
-      } finally {
-        setPasswordLoading(false);
-      }
-    } else {
-      if (passwordOtpCode.trim().length !== 6) {
-        setPasswordError('Ingresá el código de 6 dígitos enviado a tu correo.');
-        return;
-      }
-
-      setPasswordLoading(true);
-      try {
-        const res = await api.post('/auth/confirm-password-change', {
-          confirmationToken: passwordConfirmToken,
-          code: passwordOtpCode.trim(),
-        });
-        setShowPasswordModal(false);
-        Alert.alert('Éxito', res.data?.message || 'Tu contraseña fue actualizada exitosamente.');
-      } catch (err: any) {
-        setPasswordError(err.response?.data?.message || 'Código incorrecto o expirado.');
-      } finally {
-        setPasswordLoading(false);
-      }
+    setPasswordLoading(true);
+    try {
+      const res = await api.post('/auth/submit-password-change', {
+        changeAuthToken,
+        currentPassword,
+        newPassword,
+      });
+      setShowPasswordModal(false);
+      Alert.alert('¡Éxito!', res.data?.message || 'Tu contraseña fue actualizada correctamente.');
+    } catch (err: any) {
+      setPasswordError(err.response?.data?.message || 'No se pudo actualizar la contraseña.');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -1494,7 +1589,7 @@ export const ProfileScreen: React.FC = () => {
       </Modal>
 
       {/* ============================================================== */}
-      {/* MODAL CAMBIO DE CONTRASEÑA                                     */}
+      {/* MODAL CAMBIO DE CONTRASEÑA SEGURO MULTI-PASO                   */}
       {/* ============================================================== */}
       <Modal
         visible={showPasswordModal}
@@ -1516,14 +1611,41 @@ export const ProfileScreen: React.FC = () => {
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
 
-              <View style={styles.modalIconWrap}>
-                <Ionicons name="key-outline" size={28} color={Colors.primary} />
+              <View style={[
+                styles.modalIconWrap,
+                passwordChangeStep === 'no_methods' && { backgroundColor: '#fee2e2' }
+              ]}>
+                <Ionicons
+                  name={
+                    passwordChangeStep === 'no_methods' ? 'shield-outline' :
+                    passwordChangeStep === 'choose_method' ? 'shield-checkmark-outline' :
+                    passwordChangeStep === 'verify_2fa' ? 'phone-portrait-outline' :
+                    passwordChangeStep === 'verify_email' ? 'mail-outline' :
+                    'key-outline'
+                  }
+                  size={28}
+                  color={passwordChangeStep === 'no_methods' ? Colors.danger : Colors.primary}
+                />
               </View>
-              <Text style={styles.modalTitle}>Cambiar Contraseña</Text>
+
+              <Text style={styles.modalTitle}>
+                {passwordChangeStep === 'no_methods' ? 'Verificación Requerida' :
+                 passwordChangeStep === 'choose_method' ? 'Verificar Identidad' :
+                 passwordChangeStep === 'verify_2fa' ? 'Google Authenticator' :
+                 passwordChangeStep === 'verify_email' ? 'Verificación por Correo' :
+                 'Nueva Contraseña'}
+              </Text>
+
               <Text style={styles.modalSubtitle}>
-                {passwordChangeStep === 'inputs'
-                  ? 'Ingresá tu contraseña actual y la nueva que deseás utilizar.'
-                  : 'Ingresá el código de 6 dígitos enviado a tu correo para autorizar el cambio.'}
+                {passwordChangeStep === 'no_methods'
+                  ? 'Para proteger tu cuenta, requerimos verificar tu identidad antes de cambiar la contraseña. Actualmente no tienes ningún método de verificación configurado.'
+                  : passwordChangeStep === 'choose_method'
+                  ? 'Tenés dos métodos de verificación activos. Elegí cuál deseás utilizar para autorizar el cambio:'
+                  : passwordChangeStep === 'verify_2fa'
+                  ? 'Ingresá el código de 6 dígitos generado por tu app Google Authenticator:'
+                  : passwordChangeStep === 'verify_email'
+                  ? `Te enviamos un código de 6 dígitos a ${user?.email}. Ingrésalo para continuar:`
+                  : 'Ingresá tu contraseña actual y la nueva que deseás utilizar.'}
               </Text>
 
               {passwordError ? (
@@ -1533,8 +1655,195 @@ export const ProfileScreen: React.FC = () => {
                 </View>
               ) : null}
 
-              {passwordChangeStep === 'inputs' ? (
-                <>
+              {/* CASO 0: SIN MÉTODOS CONFIGURADOS */}
+              {passwordChangeStep === 'no_methods' && (
+                <View style={{ marginTop: Spacing.sm }}>
+                  <TouchableOpacity
+                    style={styles.methodOptionCard}
+                    onPress={() => {
+                      setShowPasswordModal(false);
+                      handleStartEmailVerification();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.methodIconWrap, { backgroundColor: '#e0f2fe' }]}>
+                      <Ionicons name="mail" size={22} color={Colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.methodTitle}>Verificar Correo Electrónico</Text>
+                      <Text style={styles.methodDesc}>{user?.email || 'Verificar ahora'}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.textDisabled} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.methodOptionCard}
+                    onPress={() => {
+                      setShowPasswordModal(false);
+                      handleOpenTwoFactorModal();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.methodIconWrap, { backgroundColor: '#ecfdf5' }]}>
+                      <Ionicons name="shield-checkmark" size={22} color="#059669" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.methodTitle}>Activar Google Authenticator (2FA)</Text>
+                      <Text style={styles.methodDesc}>Códigos de máxima seguridad</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.textDisabled} />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* CASO 1: SELECCIONAR MÉTODO */}
+              {passwordChangeStep === 'choose_method' && (
+                <View style={{ marginTop: Spacing.sm }}>
+                  <TouchableOpacity
+                    style={styles.methodOptionCard}
+                    onPress={handleChooseEmailMethod}
+                    disabled={passwordLoading}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.methodIconWrap, { backgroundColor: '#e0f2fe' }]}>
+                      <Ionicons name="mail" size={22} color={Colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.methodTitle}>Código por Correo Electrónico</Text>
+                      <Text style={styles.methodDesc}>Enviar código a {user?.email}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.textDisabled} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.methodOptionCard}
+                    onPress={handleChoose2FAMethod}
+                    disabled={passwordLoading}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.methodIconWrap, { backgroundColor: '#ecfdf5' }]}>
+                      <Ionicons name="phone-portrait" size={22} color="#059669" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.methodTitle}>Google Authenticator (2FA)</Text>
+                      <Text style={styles.methodDesc}>Usar código dinámico de tu app</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.textDisabled} />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* CASO 2: VERIFICAR 2FA */}
+              {passwordChangeStep === 'verify_2fa' && (
+                <View style={{ marginTop: Spacing.sm }}>
+                  {user?.emailVerified && user?.twoFactorEnabled && (
+                    <TouchableOpacity
+                      style={styles.backMethodBtn}
+                      onPress={() => setPasswordChangeStep('choose_method')}
+                    >
+                      <Ionicons name="arrow-back" size={14} color={Colors.primary} />
+                      <Text style={styles.backMethodText}>Elegir otro método</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Código de Google Authenticator</Text>
+                    <TextInput
+                      style={styles.twoFactorInputBox}
+                      placeholder="123456"
+                      placeholderTextColor={Colors.textDisabled}
+                      value={password2faCode}
+                      onChangeText={setPassword2faCode}
+                      keyboardType="number-pad"
+                      maxLength={8}
+                      autoFocus
+                    />
+                  </View>
+
+                  <Button
+                    title="Verificar Identidad"
+                    size="md"
+                    loading={passwordLoading}
+                    disabled={password2faCode.trim().length < 6}
+                    onPress={handleVerifyPassword2FACode}
+                    style={{ marginTop: Spacing.md }}
+                  />
+                </View>
+              )}
+
+              {/* CASO 3: VERIFICAR EMAIL OTP */}
+              {passwordChangeStep === 'verify_email' && (
+                <View style={{ marginTop: Spacing.sm }}>
+                  {user?.emailVerified && user?.twoFactorEnabled && (
+                    <TouchableOpacity
+                      style={styles.backMethodBtn}
+                      onPress={() => setPasswordChangeStep('choose_method')}
+                    >
+                      <Ionicons name="arrow-back" size={14} color={Colors.primary} />
+                      <Text style={styles.backMethodText}>Elegir otro método</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {qaPasswordCode && (
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: '#f8fafc',
+                        borderWidth: 1,
+                        borderColor: '#cbd5e1',
+                        borderRadius: 8,
+                        padding: 8,
+                        marginBottom: Spacing.sm,
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                      onPress={() => setPasswordOtpCode(qaPasswordCode)}
+                    >
+                      <Text style={{ fontSize: Typography.sizes.xs, color: '#334155', fontWeight: 'bold' }}>
+                        Modo pruebas: {qaPasswordCode}
+                      </Text>
+                      <Text style={{ fontSize: Typography.sizes.xs, color: Colors.primary, fontWeight: 'bold' }}>
+                        Autocompletar
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Código de Seguridad (6 dígitos)</Text>
+                    <TextInput
+                      style={styles.twoFactorInputBox}
+                      placeholder="123456"
+                      placeholderTextColor={Colors.textDisabled}
+                      value={passwordOtpCode}
+                      onChangeText={setPasswordOtpCode}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      autoFocus
+                    />
+                  </View>
+
+                  <Button
+                    title="Verificar Código"
+                    size="md"
+                    loading={passwordLoading}
+                    disabled={passwordOtpCode.trim().length !== 6}
+                    onPress={handleVerifyPasswordEmailCode}
+                    style={{ marginTop: Spacing.md }}
+                  />
+
+                  <TouchableOpacity
+                    style={styles.resendBtn}
+                    onPress={handleResendPasswordEmailCode}
+                    disabled={passwordLoading}
+                  >
+                    <Text style={styles.resendBtnText}>¿No te llegó? Reenviar código</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* CASO 4: FORMULARIO DE NUEVA CONTRASEÑA */}
+              {passwordChangeStep === 'set_passwords' && (
+                <View style={{ marginTop: Spacing.sm }}>
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Contraseña Actual</Text>
                     <View style={styles.inputWithIcon}>
@@ -1596,37 +1905,13 @@ export const ProfileScreen: React.FC = () => {
                   </View>
 
                   <Button
-                    title="Actualizar Contraseña"
+                    title="Guardar Nueva Contraseña"
                     size="md"
                     loading={passwordLoading}
-                    onPress={handleSubmitPasswordChange}
+                    onPress={handleFinalizePasswordChange}
                     style={{ marginTop: Spacing.md }}
                   />
-                </>
-              ) : (
-                <>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Código de Seguridad (6 dígitos)</Text>
-                    <TextInput
-                      style={styles.twoFactorInputBox}
-                      placeholder="123456"
-                      placeholderTextColor={Colors.textDisabled}
-                      value={passwordOtpCode}
-                      onChangeText={setPasswordOtpCode}
-                      keyboardType="number-pad"
-                      maxLength={6}
-                      autoFocus
-                    />
-                  </View>
-
-                  <Button
-                    title="Confirmar Cambio de Contraseña"
-                    size="md"
-                    loading={passwordLoading}
-                    onPress={handleSubmitPasswordChange}
-                    style={{ marginTop: Spacing.md }}
-                  />
-                </>
+                </View>
               )}
 
               <TouchableOpacity
@@ -2268,6 +2553,46 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     color: Colors.textSecondary,
     fontWeight: Typography.weights.medium,
+  },
+  methodOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: '#ffffff',
+    marginBottom: Spacing.sm,
+  },
+  methodIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+  methodTitle: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textMain,
+    marginBottom: 2,
+  },
+  methodDesc: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+  },
+  backMethodBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: Spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  backMethodText: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.primary,
+    fontWeight: Typography.weights.semiBold,
   },
   resendBtn: {
     alignItems: 'center',
