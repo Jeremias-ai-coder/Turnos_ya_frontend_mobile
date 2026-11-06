@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +34,15 @@ import api, {
   LOCAL_LAN_URL,
 } from '../../services/api';
 
+export type SubViewType =
+  | 'hub'
+  | 'personal_info'
+  | 'security'
+  | 'devices'
+  | 'notifications'
+  | 'privacy'
+  | 'network';
+
 interface UserSessionItem {
   id: string;
   deviceName: string;
@@ -46,28 +56,32 @@ export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user, logout, updateUser } = useAuth();
   const { isAdmin, setRoleMode, businesses, selectedBusiness } = useOwner();
+
+  // Navegación modular interna (In-screen drill-down)
+  const [activeSubView, setActiveSubView] = useState<SubViewType>('hub');
+
+  // Modales adicionales
   const [dossierVisible, setDossierVisible] = useState(false);
+  const [showBugModal, setShowBugModal] = useState(false);
 
   // Preferencias de Notificaciones
   const [emailNotifs, setEmailNotifs] = useState(user?.emailNotifications ?? true);
   const [whatsappNotifs, setWhatsappNotifs] = useState(user?.whatsappNotifications ?? false);
   const [savingNotifs, setSavingNotifs] = useState(false);
 
-  // Preferencias de Privacidad (estilo Web / Mercado Libre)
+  // Preferencias de Privacidad
   const [privacySharePhone, setPrivacySharePhone] = useState(false);
   const [privacySystemNews, setPrivacySystemNews] = useState(true);
   const [privacyProfilePublic, setPrivacyProfilePublic] = useState(true);
 
-  // Modal Edición de Datos Personales (Nombre y Teléfono)
-  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editPhone, setEditPhone] = useState('');
+  // Edición de Datos Personales
+  const [editName, setEditName] = useState(user?.name || '');
+  const [editPhone, setEditPhone] = useState(user?.phone || '');
   const [editProfileLoading, setEditProfileLoading] = useState(false);
   const [editProfileError, setEditProfileError] = useState<string | null>(null);
 
-  // Configuración de red para desarrolladores / QA
+  // Servidor y Conectividad
   const [customApiUrl, setCustomApiUrl] = useState('');
-  const [showConfig, setShowConfig] = useState(false);
 
   // Sesiones activas y dispositivos vinculados
   const [sessions, setSessions] = useState<UserSessionItem[]>([]);
@@ -110,9 +124,7 @@ export const ProfileScreen: React.FC = () => {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  // Modal Reporte de Bug / Soporte Técnico
-  const [showBugModal, setShowBugModal] = useState(false);
-
+  // Sincronización inicial
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEYS.API_URL).then((val) => {
       if (val && !val.includes('172.27.') && !val.includes('localhost') && !val.includes('10.0.2.2')) {
@@ -124,8 +136,21 @@ export const ProfileScreen: React.FC = () => {
 
     if (user) {
       loadSessions();
+      setEditName(user.name || '');
+      setEditPhone(user.phone || '');
     }
   }, [user]);
+
+  // Soporte ergonómico para botón de atrás físico en Android
+  useEffect(() => {
+    if (activeSubView === 'hub') return;
+    const onBackPress = () => {
+      setActiveSubView('hub');
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backHandler.remove();
+  }, [activeSubView]);
 
   // Carga de sesiones activas del usuario
   const loadSessions = async () => {
@@ -135,7 +160,7 @@ export const ProfileScreen: React.FC = () => {
       const res = await api.get('/auth/sessions');
       setSessions(res.data || []);
     } catch {
-      // Ignorar fallos transitorios
+      // Manejo silencioso de red
     } finally {
       setSessionsLoading(false);
     }
@@ -150,10 +175,7 @@ export const ProfileScreen: React.FC = () => {
         Alert.alert('Configuración', 'Se restauró el servidor por defecto (Nube oficial).');
       } else {
         await AsyncStorage.setItem(STORAGE_KEYS.API_URL, customApiUrl.trim());
-        Alert.alert(
-          'Configuración Guardada',
-          'URL del servidor actualizada correctamente.'
-        );
+        Alert.alert('Configuración Guardada', 'URL del servidor actualizada correctamente.');
       }
     } catch {
       Alert.alert('Error', 'No se pudo guardar la configuración.');
@@ -177,13 +199,6 @@ export const ProfileScreen: React.FC = () => {
   };
 
   // Guardar datos personales
-  const handleOpenEditProfile = () => {
-    setEditName(user?.name || '');
-    setEditPhone(user?.phone || '');
-    setEditProfileError(null);
-    setShowEditProfileModal(true);
-  };
-
   const handleSaveProfile = async () => {
     if (!editName.trim()) {
       setEditProfileError('Por favor ingresá tu nombre.');
@@ -205,8 +220,8 @@ export const ProfileScreen: React.FC = () => {
           phone: res.data.phone || editPhone.trim(),
         });
       }
-      setShowEditProfileModal(false);
       Alert.alert('Éxito', 'Tus datos personales fueron actualizados.');
+      setActiveSubView('hub');
     } catch (err: any) {
       setEditProfileError(err.response?.data?.message || 'Error al actualizar tus datos.');
     } finally {
@@ -214,7 +229,7 @@ export const ProfileScreen: React.FC = () => {
     }
   };
 
-  // Guardar preferencias de notificaciones
+  // Guardar preferencias de notificaciones con Optimistic Update
   const handleToggleNotifications = async (type: 'email' | 'whatsapp', nextVal: boolean) => {
     if (type === 'email') setEmailNotifs(nextVal);
     if (type === 'whatsapp') setWhatsappNotifs(nextVal);
@@ -242,9 +257,7 @@ export const ProfileScreen: React.FC = () => {
     }
   };
 
-  // ==============================================================
-  // GESTIÓN DE SESIONES ACTIVAS
-  // ==============================================================
+  // Revocar Sesión Remota Individual
   const handleRevokeSession = (sessionId: string) => {
     Alert.alert(
       'Cerrar Sesión Remota',
@@ -271,6 +284,7 @@ export const ProfileScreen: React.FC = () => {
     );
   };
 
+  // Revocar Todas las demás sesiones
   const handleRevokeAllOtherSessions = () => {
     Alert.alert(
       'Cerrar Otras Sesiones',
@@ -297,9 +311,7 @@ export const ProfileScreen: React.FC = () => {
     );
   };
 
-  // ==============================================================
-  // GESTIÓN 2FA (GOOGLE AUTHENTICATOR)
-  // ==============================================================
+  // Flujo 2FA (Google Authenticator)
   const handleOpenTwoFactorModal = async () => {
     setTwoFactorError(null);
     setTwoFactorCodeInput('');
@@ -355,7 +367,7 @@ export const ProfileScreen: React.FC = () => {
         updateUser({ ...user, twoFactorEnabled: true });
       }
     } catch (err: any) {
-      setTwoFactorError(err.response?.data?.message || 'Código de verificación incorrecto o expirado.');
+      setTwoFactorError(err.response?.data?.message || 'Código incorrecto o expirado.');
     } finally {
       setTwoFactorLoading(false);
     }
@@ -383,9 +395,7 @@ export const ProfileScreen: React.FC = () => {
     }
   };
 
-  // ==============================================================
-  // VERIFICACIÓN DE CORREO ELECTRÓNICO (OTP)
-  // ==============================================================
+  // Verificación de Correo (OTP)
   const handleStartEmailVerification = async () => {
     setEmailVerifyLoading(true);
     setEmailVerifyError(null);
@@ -427,9 +437,7 @@ export const ProfileScreen: React.FC = () => {
     }
   };
 
-  // ==============================================================
-  // CAMBIO DE CONTRASEÑA SEGURO CON VERIFICACIÓN MULTI-FACTOR
-  // ==============================================================
+  // Cambio de Contraseña Seguro con Verificación Multi-Factor
   const handleOpenPasswordModal = async () => {
     setCurrentPassword('');
     setNewPassword('');
@@ -606,723 +614,963 @@ export const ProfileScreen: React.FC = () => {
 
   const isConnectedToCloud = customApiUrl.includes('onrender');
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+  // ==============================================================
+  // TÍTULOS DINÁMICOS DE SECCIÓN
+  // ==============================================================
+  const SUBVIEW_TITLES: Record<SubViewType, string> = {
+    hub: 'Mi Perfil',
+    personal_info: 'Datos Personales',
+    security: 'Seguridad y Acceso',
+    devices: 'Dispositivos Vinculados',
+    notifications: 'Notificaciones y Alertas',
+    privacy: 'Privacidad y Legal',
+    network: 'Servidor y Red',
+  };
 
-      <View style={styles.navBar}>
-        <Text style={styles.navTitle}>Mi Perfil</Text>
-      </View>
+  // ==============================================================
+  // SUB-VISTA 1: DATOS PERSONALES
+  // ==============================================================
+  const renderPersonalInfoSubView = () => (
+    <ScrollView contentContainerStyle={styles.subViewContent} showsVerticalScrollIndicator={false}>
+      <Card style={styles.formCard}>
+        <Text style={styles.formSectionTitle}>Información de Contacto</Text>
+        <Text style={styles.formSectionSubtitle}>
+          Estos datos se utilizan para asociar tus turnos y agendar reservas en comercios.
+        </Text>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* User Info Card con opción de edición */}
-        {user ? (
-          <Card style={styles.userCard}>
-            <View style={styles.avatarWrap}>
-              <Text style={styles.avatarInitials}>
-                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-              </Text>
-            </View>
-            <View style={{ flex: 1, marginLeft: Spacing.md }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={styles.userName}>{user.name}</Text>
-                <TouchableOpacity
-                  style={styles.editProfileBtn}
-                  onPress={handleOpenEditProfile}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="create-outline" size={18} color={Colors.primary} />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.userEmail}>{user.email}</Text>
-              {user.phone ? (
-                <Text style={styles.userPhone}>📞 {user.phone}</Text>
-              ) : (
-                <TouchableOpacity onPress={handleOpenEditProfile}>
-                  <Text style={[styles.userPhone, { color: Colors.primary }]}>+ Agregar teléfono</Text>
-                </TouchableOpacity>
-              )}
-
-              <View style={styles.roleRow}>
-                <View style={styles.roleBadge}>
-                  <Text style={styles.roleText}>{user.role || 'CLIENTE'}</Text>
-                </View>
-                {user.emailVerified ? (
-                  <View style={[styles.verifiedPill, { backgroundColor: '#ecfdf5' }]}>
-                    <Ionicons name="checkmark-circle" size={13} color="#059669" />
-                    <Text style={[styles.verifiedPillText, { color: '#059669' }]}>Verificado</Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.verifiedPill, { backgroundColor: '#fffbeb', borderColor: '#fde68a', borderWidth: 1 }]}
-                    onPress={handleStartEmailVerification}
-                  >
-                    <Ionicons name="alert-circle" size={13} color="#d97706" />
-                    <Text style={[styles.verifiedPillText, { color: '#d97706' }]}>Verificar correo</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          </Card>
-        ) : (
-          <Card style={styles.guestCard}>
-            <Ionicons name="person-circle-outline" size={54} color={Colors.primary} />
-            <Text style={styles.guestTitle}>¡Bienvenido a Turnos Ya!</Text>
-            <Text style={styles.guestDesc}>
-              Iniciá sesión o creá tu cuenta para gestionar turnos y configurar alertas.
-            </Text>
-            <View style={styles.guestActions}>
-              <Button
-                title="Iniciar Sesión"
-                size="md"
-                onPress={() => navigation.navigate('Login')}
-                style={{ flex: 1 }}
-              />
-              <Button
-                title="Registrarse"
-                variant="outline"
-                size="md"
-                onPress={() => navigation.navigate('Register')}
-                style={{ flex: 1 }}
-              />
-            </View>
-          </Card>
-        )}
-
-        {/* Admin Switcher to Owner Mode */}
-        {user && isAdmin && (
-          <View style={styles.adminBanner}>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                <Ionicons name="shield-checkmark" size={16} color="#b45309" />
-                <Text style={styles.adminBannerTitle}>Acceso de Administrador</Text>
-              </View>
-              <Text style={styles.adminBannerSubtitle}>
-                Podés alternar al panel de Dueño (Owner) para gestionar turnos y negocios.
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.adminBannerBtn}
-              onPress={() => setRoleMode('owner')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="storefront" size={15} color={Colors.white} />
-              <Text style={styles.adminBannerBtnText}>Panel Dueño</Text>
-            </TouchableOpacity>
+        {editProfileError ? (
+          <View style={styles.modalErrorBox}>
+            <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+            <Text style={styles.modalErrorText}>{editProfileError}</Text>
           </View>
-        )}
+        ) : null}
 
-        {/* Business Status & Onboarding Section */}
-        {user && (
-          <View style={styles.sectionWrap}>
-            {selectedBusiness?.status === 'pending_approval' ? (
-              <View style={styles.bizStatusCardPending}>
-                <View style={styles.bizStatusHeader}>
-                  <Ionicons name="time" size={20} color="#b45309" />
-                  <Text style={styles.bizStatusPendingTitle}>Negocio en Proceso de Verificación</Text>
-                </View>
-                <Text style={styles.bizStatusPendingDesc}>
-                  Tu local "{selectedBusiness.name}" está en revisión por administración. Cuando sea confirmado, aparecerá activo en la plataforma.
-                </Text>
-                <View style={styles.bizStatusActions}>
-                  <TouchableOpacity
-                    style={styles.bizStatusBtnSecondary}
-                    onPress={() => setDossierVisible(true)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="eye-outline" size={15} color="#92400e" />
-                    <Text style={styles.bizStatusBtnSecondaryText}>Ver Ficha Enviada</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.bizStatusBtnPrimary}
-                    onPress={() => navigation.navigate('RegisterBusiness', { business: selectedBusiness })}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="pencil" size={15} color={Colors.white} />
-                    <Text style={styles.bizStatusBtnPrimaryText}>Editar Datos</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : selectedBusiness?.status === 'rejected' ? (
-              <View style={styles.bizStatusCardRejected}>
-                <View style={styles.bizStatusHeader}>
-                  <Ionicons name="alert-circle" size={20} color="#b91c1c" />
-                  <Text style={styles.bizStatusRejectedTitle}>Solicitud de Negocio Observada</Text>
-                </View>
-                <Text style={styles.bizStatusRejectedDesc}>
-                  {selectedBusiness.rejectionReason || 'El equipo administrativo solicitó correcciones antes de aprobar tu comercio.'}
-                </Text>
-                <View style={styles.bizStatusActions}>
-                  <TouchableOpacity
-                    style={styles.bizStatusBtnSecondaryRed}
-                    onPress={() => setDossierVisible(true)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="eye-outline" size={15} color="#991b1b" />
-                    <Text style={styles.bizStatusBtnSecondaryRedText}>Ver Observaciones</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.bizStatusBtnDanger}
-                    onPress={() => navigation.navigate('RegisterBusiness', { business: selectedBusiness })}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="refresh" size={15} color={Colors.white} />
-                    <Text style={styles.bizStatusBtnPrimaryText}>Corregir Solicitud</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : businesses.length === 0 ? (
-              <View style={styles.bizCtaCard}>
-                <View style={styles.bizCtaBadge}>
-                  <Ionicons name="sparkles" size={12} color="#0284c7" />
-                  <Text style={styles.bizCtaBadgeText}>COMERCIOS & SERVICIOS</Text>
-                </View>
-                <Text style={styles.bizCtaTitle}>¿Tenés un negocio o brindás servicios?</Text>
-                <Text style={styles.bizCtaDesc}>
-                  Registrá tu local en Turnos Ya para recibir reservas online 24/7, gestionar tu agenda y profesionalizar la atención de tus clientes.
-                </Text>
-                <TouchableOpacity
-                  style={styles.bizCtaButton}
-                  onPress={() => navigation.navigate('RegisterBusiness')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="storefront" size={16} color={Colors.white} />
-                  <Text style={styles.bizCtaButtonText}>Registrar mi Negocio</Text>
-                  <Ionicons name="arrow-forward" size={16} color={Colors.white} />
-                </TouchableOpacity>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Nombre Completo</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={editName}
+            onChangeText={setEditName}
+            placeholder="Tu nombre completo"
+            placeholderTextColor={Colors.textDisabled}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Teléfono / WhatsApp</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={editPhone}
+            onChangeText={setEditPhone}
+            placeholder="+54 9 11 1234-5678"
+            placeholderTextColor={Colors.textDisabled}
+            keyboardType="phone-pad"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Dirección de Correo Electrónico</Text>
+          <View style={styles.emailReadOnlyBox}>
+            <Text style={styles.emailReadOnlyText}>{user?.email}</Text>
+            {user?.emailVerified ? (
+              <View style={styles.verifiedInlineTag}>
+                <Ionicons name="checkmark-circle" size={13} color="#059669" />
+                <Text style={styles.verifiedInlineText}>Verificado</Text>
               </View>
             ) : (
-              <View style={styles.bizManagedCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={styles.bizManagedIconWrap}>
-                    <Ionicons name="storefront" size={20} color={Colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.bizManagedName}>{selectedBusiness?.name || 'Mi Comercio'}</Text>
-                    <Text style={styles.bizManagedSub}>Panel de administración de turnos y servicios</Text>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                  <TouchableOpacity
-                    style={styles.bizManagedBtnPanel}
-                    onPress={() => setRoleMode('owner')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="grid-outline" size={15} color={Colors.white} />
-                    <Text style={styles.bizManagedBtnPanelText}>Ir al Panel Dueño</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.bizManagedBtnAdd}
-                    onPress={() => navigation.navigate('RegisterBusiness')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="add" size={16} color={Colors.primary} />
-                    <Text style={styles.bizManagedBtnAddText}>Nueva Sucursal</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <TouchableOpacity
+                style={styles.verifyActionTag}
+                onPress={handleStartEmailVerification}
+              >
+                <Text style={styles.verifyActionText}>Verificar</Text>
+              </TouchableOpacity>
             )}
           </View>
-        )}
+        </View>
 
-        {/* Security Settings Section */}
-        {user && (
-          <View style={styles.sectionWrap}>
-            <Text style={styles.sectionHeader}>Seguridad de la Cuenta</Text>
-            <Card style={styles.settingsCard}>
-              {/* 2FA */}
-              <View style={styles.securityItemRow}>
-                <View style={{ flex: 1, paddingRight: Spacing.sm }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons
-                      name="shield-checkmark"
-                      size={18}
-                      color={user.twoFactorEnabled ? Colors.success : Colors.primary}
-                    />
-                    <Text style={styles.settingLabel}>Google Authenticator (2FA)</Text>
-                  </View>
-                  <Text style={styles.settingDesc}>
-                    {user.twoFactorEnabled
-                      ? 'Protección alta activa. Se requiere código temporal al iniciar sesión.'
-                      : 'Protegé tu cuenta con código temporal TOTP generado en tu celular.'}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.actionPill,
-                    user.twoFactorEnabled ? styles.actionPillDanger : styles.actionPillPrimary,
-                  ]}
-                  onPress={handleOpenTwoFactorModal}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.actionPillText,
-                      user.twoFactorEnabled ? styles.actionPillTextDanger : styles.actionPillTextPrimary,
-                    ]}
-                  >
-                    {user.twoFactorEnabled ? 'Desactivar' : 'Configurar'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+        <Button
+          title="Guardar Cambios"
+          size="md"
+          loading={editProfileLoading}
+          onPress={handleSaveProfile}
+          style={{ marginTop: Spacing.md }}
+        />
+      </Card>
+    </ScrollView>
+  );
 
-              <View style={styles.divider} />
-
-              {/* Email Verification */}
-              <View style={styles.securityItemRow}>
-                <View style={{ flex: 1, paddingRight: Spacing.sm }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons
-                      name="mail-unread-outline"
-                      size={18}
-                      color={user.emailVerified ? Colors.success : '#d97706'}
-                    />
-                    <Text style={styles.settingLabel}>Correo Electrónico</Text>
-                  </View>
-                  <Text style={styles.settingDesc}>
-                    {user.emailVerified
-                      ? 'Verificado para restablecimiento seguro de acceso y confirmaciones.'
-                      : 'Pendiente de verificación para desbloquear funciones de seguridad.'}
-                  </Text>
-                </View>
-                {user.emailVerified ? (
-                  <View style={[styles.securityPill, styles.securityPillActive]}>
-                    <Text style={[styles.securityPillText, styles.securityPillTextActive]}>
-                      Verificado
-                    </Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[styles.actionPill, styles.actionPillWarning]}
-                    onPress={handleStartEmailVerification}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.actionPillText, styles.actionPillTextWarning]}>
-                      Verificar
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* Password Change */}
-              <View style={styles.securityItemRow}>
-                <View style={{ flex: 1, paddingRight: Spacing.sm }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="key-outline" size={18} color={Colors.primary} />
-                    <Text style={styles.settingLabel}>Contraseña de la Cuenta</Text>
-                  </View>
-                  <Text style={styles.settingDesc}>
-                    Actualizá periódicamente tu contraseña para mantener la seguridad.
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.actionPill, styles.actionPillOutline]}
-                  onPress={handleOpenPasswordModal}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.actionPillText, styles.actionPillTextOutline]}>
-                    Cambiar
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </Card>
+  // ==============================================================
+  // SUB-VISTA 2: SEGURIDAD Y ACCESO
+  // ==============================================================
+  const renderSecuritySubView = () => (
+    <ScrollView contentContainerStyle={styles.subViewContent} showsVerticalScrollIndicator={false}>
+      {/* Resumen del Nivel de Seguridad */}
+      <View style={styles.securityScoreCard}>
+        <View style={styles.securityScoreHeader}>
+          <Ionicons
+            name={user?.twoFactorEnabled ? 'shield-checkmark' : user?.emailVerified ? 'shield-half' : 'shield-outline'}
+            size={28}
+            color={user?.twoFactorEnabled ? '#059669' : user?.emailVerified ? Colors.primary : '#d97706'}
+          />
+          <View style={{ flex: 1, marginLeft: Spacing.md }}>
+            <Text style={styles.securityScoreTitle}>
+              {user?.twoFactorEnabled
+                ? 'Nivel de Protección: Alto'
+                : user?.emailVerified
+                ? 'Nivel de Protección: Estándar'
+                : 'Nivel de Protección: Básico'}
+            </Text>
+            <Text style={styles.securityScoreDesc}>
+              {user?.twoFactorEnabled
+                ? 'Tu cuenta tiene habilitada la autenticación en dos pasos (TOTP).'
+                : user?.emailVerified
+                ? 'Correo verificado. Podés activar Google Authenticator para máxima seguridad.'
+                : 'Verificá tu correo o activá Google Authenticator para proteger tu cuenta.'}
+            </Text>
           </View>
-        )}
+        </View>
+      </View>
 
-        {/* Active Sessions & Linked Devices */}
-        {user && (
-          <View style={styles.sectionWrap}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeader}>Sesiones y Dispositivos</Text>
-              <TouchableOpacity onPress={loadSessions} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="refresh-outline" size={18} color={Colors.primary} />
-              </TouchableOpacity>
-            </View>
+      <Text style={styles.sectionHeaderTitle}>MÉTODOS DE AUTENTICACIÓN</Text>
+      <View style={styles.groupedList}>
+        {/* Contraseña */}
+        <TouchableOpacity style={styles.groupedRow} onPress={handleOpenPasswordModal} activeOpacity={0.7}>
+          <View style={[styles.groupedRowIconWrap, { backgroundColor: '#eff6ff' }]}>
+            <Ionicons name="key-outline" size={20} color={Colors.primary} />
+          </View>
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Contraseña de la cuenta</Text>
+            <Text style={styles.groupedRowSubtitle}>••••••••••••</Text>
+          </View>
+          <Text style={styles.groupedActionLabel}>Modificar</Text>
+          <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+        </TouchableOpacity>
 
-            <Card style={styles.settingsCard}>
-              <Text style={styles.sessionsSubDesc}>
-                Dispositivos que han iniciado sesión recientemente en tu cuenta de Turnos Ya.
-              </Text>
+        <View style={styles.groupedDivider} />
 
-              {sessionsLoading ? (
-                <View style={{ paddingVertical: Spacing.lg, alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                  <Text style={{ fontSize: Typography.sizes.xs, color: Colors.textSecondary, marginTop: 6 }}>
-                    Cargando dispositivos...
-                  </Text>
-                </View>
-              ) : sessions.length === 0 ? (
-                <View style={{ paddingVertical: Spacing.md, alignItems: 'center' }}>
-                  <Ionicons name="shield-outline" size={28} color={Colors.textDisabled} />
-                  <Text style={{ fontSize: Typography.sizes.xs, color: Colors.textSecondary, marginTop: 4 }}>
-                    Sesión actual segura y protegida.
-                  </Text>
-                </View>
-              ) : (
-                <View style={{ marginTop: Spacing.xs }}>
-                  {sessions.map((s, idx) => {
-                    const isMobileDevice =
-                      s.deviceName?.toLowerCase().includes('phone') ||
-                      s.deviceName?.toLowerCase().includes('android') ||
-                      s.deviceName?.toLowerCase().includes('ios') ||
-                      s.deviceName?.toLowerCase().includes('expo');
+        {/* 2FA */}
+        <TouchableOpacity style={styles.groupedRow} onPress={handleOpenTwoFactorModal} activeOpacity={0.7}>
+          <View
+            style={[
+              styles.groupedRowIconWrap,
+              { backgroundColor: user?.twoFactorEnabled ? '#ecfdf5' : '#f8fafc' },
+            ]}
+          >
+            <Ionicons
+              name="phone-portrait-outline"
+              size={20}
+              color={user?.twoFactorEnabled ? '#059669' : Colors.textSecondary}
+            />
+          </View>
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Google Authenticator (2FA)</Text>
+            <Text style={styles.groupedRowSubtitle}>
+              {user?.twoFactorEnabled ? 'Activado · Códigos TOTP' : 'Protección de inicio de sesión'}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.statusPill,
+              user?.twoFactorEnabled ? styles.statusPillGreen : styles.statusPillGray,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusPillText,
+                user?.twoFactorEnabled ? styles.statusPillTextGreen : styles.statusPillTextGray,
+              ]}
+            >
+              {user?.twoFactorEnabled ? 'Activo' : 'Inactivo'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+        </TouchableOpacity>
 
-                    return (
-                      <View key={s.id || idx}>
-                        {idx > 0 && <View style={styles.sessionDivider} />}
-                        <View style={styles.sessionItem}>
-                          <View style={styles.deviceIconWrap}>
-                            <Ionicons
-                              name={isMobileDevice ? 'phone-portrait-outline' : 'laptop-outline'}
-                              size={20}
-                              color={s.isCurrent ? Colors.primary : Colors.textSecondary}
-                            />
-                          </View>
-                          <View style={{ flex: 1, marginHorizontal: Spacing.sm }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Text style={styles.deviceNameText} numberOfLines={1}>
-                                {s.deviceName || 'Dispositivo Desconocido'}
-                              </Text>
-                              {s.isCurrent && (
-                                <View style={styles.currentBadge}>
-                                  <Text style={styles.currentBadgeText}>Actual</Text>
-                                </View>
-                              )}
-                            </View>
-                            <Text style={styles.deviceMetaText}>
-                              {s.ipAddress ? `IP: ${s.ipAddress}` : 'Conectado recientemente'}
-                            </Text>
-                          </View>
+        <View style={styles.groupedDivider} />
 
-                          {!s.isCurrent && (
-                            <TouchableOpacity
-                              style={styles.revokeSessionBtn}
-                              onPress={() => handleRevokeSession(s.id)}
-                              disabled={sessionActionLoading === s.id}
-                            >
-                              {sessionActionLoading === s.id ? (
-                                <ActivityIndicator size="small" color={Colors.danger} />
-                              ) : (
-                                <Ionicons name="log-out-outline" size={18} color={Colors.danger} />
-                              )}
-                            </TouchableOpacity>
-                          )}
+        {/* Correo Electrónico Verificado */}
+        <TouchableOpacity
+          style={styles.groupedRow}
+          onPress={user?.emailVerified ? undefined : handleStartEmailVerification}
+          activeOpacity={user?.emailVerified ? 1 : 0.7}
+        >
+          <View
+            style={[
+              styles.groupedRowIconWrap,
+              { backgroundColor: user?.emailVerified ? '#ecfdf5' : '#fffbeb' },
+            ]}
+          >
+            <Ionicons
+              name="mail-outline"
+              size={20}
+              color={user?.emailVerified ? '#059669' : '#d97706'}
+            />
+          </View>
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Correo electrónico</Text>
+            <Text style={styles.groupedRowSubtitle}>{user?.email}</Text>
+          </View>
+          <View
+            style={[
+              styles.statusPill,
+              user?.emailVerified ? styles.statusPillGreen : styles.statusPillAmber,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusPillText,
+                user?.emailVerified ? styles.statusPillTextGreen : styles.statusPillTextAmber,
+              ]}
+            >
+              {user?.emailVerified ? 'Verificado' : 'Verificar'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Próximas Tecnologías */}
+      <Text style={[styles.sectionHeaderTitle, { marginTop: Spacing.xl }]}>PRÓXIMAS TECNOLOGÍAS</Text>
+      <View style={styles.groupedList}>
+        <View style={[styles.groupedRow, { opacity: 0.75 }]}>
+          <View style={[styles.groupedRowIconWrap, { backgroundColor: '#f1f5f9' }]}>
+            <Ionicons name="finger-print-outline" size={20} color={Colors.textSecondary} />
+          </View>
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Biometría & Passkeys</Text>
+            <Text style={styles.groupedRowSubtitle}>Acceso instantáneo con huella o Face ID</Text>
+          </View>
+          <View style={styles.statusPillRoadmap}>
+            <Text style={styles.statusPillRoadmapText}>Próximamente</Text>
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+  );
+
+  // ==============================================================
+  // SUB-VISTA 3: DISPOSITIVOS VINCULADOS
+  // ==============================================================
+  const renderDevicesSubView = () => (
+    <ScrollView contentContainerStyle={styles.subViewContent} showsVerticalScrollIndicator={false}>
+      <Text style={styles.subViewHeaderDesc}>
+        Gestioná los dispositivos donde iniciaste sesión con tu cuenta de Turnos Ya.
+      </Text>
+
+      <View style={styles.groupedList}>
+        {sessionsLoading ? (
+          <View style={{ padding: Spacing.xl, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+            <Text style={{ marginTop: Spacing.xs, color: Colors.textSecondary, fontSize: 13 }}>
+              Cargando dispositivos...
+            </Text>
+          </View>
+        ) : sessions.length === 0 ? (
+          <View style={{ padding: Spacing.lg, alignItems: 'center' }}>
+            <Ionicons name="checkmark-circle-outline" size={32} color="#059669" />
+            <Text style={{ marginTop: Spacing.xs, color: Colors.textTitle, fontWeight: '700' }}>
+              Sesión actual protegida
+            </Text>
+            <Text style={{ fontSize: 12, color: Colors.textSecondary, textAlign: 'center', marginTop: 2 }}>
+              No hay otras sesiones activas registradas.
+            </Text>
+          </View>
+        ) : (
+          sessions.map((s, idx) => {
+            const isMobile =
+              s.deviceName?.toLowerCase().includes('phone') ||
+              s.deviceName?.toLowerCase().includes('android') ||
+              s.deviceName?.toLowerCase().includes('ios') ||
+              s.deviceName?.toLowerCase().includes('expo');
+
+            return (
+              <View key={s.id || idx}>
+                {idx > 0 && <View style={styles.groupedDivider} />}
+                <View style={styles.groupedRow}>
+                  <View style={[styles.groupedRowIconWrap, { backgroundColor: '#f1f5f9' }]}>
+                    <Ionicons
+                      name={isMobile ? 'phone-portrait-outline' : 'laptop-outline'}
+                      size={20}
+                      color={s.isCurrent ? Colors.primary : Colors.textSecondary}
+                    />
+                  </View>
+                  <View style={styles.groupedRowBody}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.groupedRowTitle} numberOfLines={1}>
+                        {s.deviceName || 'Dispositivo'}
+                      </Text>
+                      {s.isCurrent && (
+                        <View style={styles.currentDevicePill}>
+                          <Text style={styles.currentDeviceText}>Este celular</Text>
                         </View>
-                      </View>
-                    );
-                  })}
+                      )}
+                    </View>
+                    <Text style={styles.groupedRowSubtitle}>
+                      {s.ipAddress ? `IP: ${s.ipAddress}` : 'Conexión segura'}
+                    </Text>
+                  </View>
 
-                  {sessions.some((s) => !s.isCurrent) && (
+                  {!s.isCurrent && (
                     <TouchableOpacity
-                      style={styles.revokeAllBtn}
-                      onPress={handleRevokeAllOtherSessions}
-                      disabled={sessionActionLoading === 'all'}
-                      activeOpacity={0.8}
+                      style={styles.revokeSessionBtn}
+                      onPress={() => handleRevokeSession(s.id)}
+                      disabled={sessionActionLoading === s.id}
                     >
-                      {sessionActionLoading === 'all' ? (
+                      {sessionActionLoading === s.id ? (
                         <ActivityIndicator size="small" color={Colors.danger} />
                       ) : (
-                        <>
-                          <Ionicons name="power-outline" size={15} color={Colors.danger} />
-                          <Text style={styles.revokeAllBtnText}>Cerrar todas las demás sesiones</Text>
-                        </>
+                        <Ionicons name="log-out-outline" size={18} color={Colors.danger} />
                       )}
                     </TouchableOpacity>
                   )}
                 </View>
-              )}
-            </Card>
-          </View>
+              </View>
+            );
+          })
         )}
+      </View>
 
-        {/* Notifications Settings */}
-        <View style={styles.sectionWrap}>
-          <Text style={styles.sectionHeader}>Notificaciones y Recordatorios</Text>
-          <Card style={styles.settingsCard}>
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Avisos por Correo Electrónico</Text>
-                <Text style={styles.settingDesc}>
-                  Confirmaciones y cancelaciones automáticas
-                </Text>
-              </View>
-              <Switch
-                value={emailNotifs}
-                onValueChange={(val) => handleToggleNotifications('email', val)}
-                trackColor={{ false: Colors.border, true: Colors.primaryLight }}
-                thumbColor={emailNotifs ? Colors.primary : '#f4f3f4'}
-                disabled={savingNotifs}
-              />
-            </View>
+      {sessions.some((s) => !s.isCurrent) && (
+        <TouchableOpacity
+          style={styles.revokeAllSessionsBtn}
+          onPress={handleRevokeAllOtherSessions}
+          disabled={sessionActionLoading === 'all'}
+          activeOpacity={0.8}
+        >
+          {sessionActionLoading === 'all' ? (
+            <ActivityIndicator size="small" color={Colors.danger} />
+          ) : (
+            <>
+              <Ionicons name="power-outline" size={18} color={Colors.danger} />
+              <Text style={styles.revokeAllSessionsText}>Cerrar todas las demás sesiones</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+    </ScrollView>
+  );
 
-            <View style={styles.divider} />
+  // ==============================================================
+  // SUB-VISTA 4: NOTIFICACIONES Y ALERTAS
+  // ==============================================================
+  const renderNotificationsSubView = () => (
+    <ScrollView contentContainerStyle={styles.subViewContent} showsVerticalScrollIndicator={false}>
+      <Text style={styles.subViewHeaderDesc}>
+        Elegí por qué canales querés recibir confirmaciones, cancelaciones y recordatorios de tus turnos.
+      </Text>
 
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Alertas por WhatsApp</Text>
-                <Text style={styles.settingDesc}>
-                  Recordatorios 2 horas antes de tu turno
-                </Text>
-              </View>
-              <Switch
-                value={whatsappNotifs}
-                onValueChange={(val) => handleToggleNotifications('whatsapp', val)}
-                trackColor={{ false: Colors.border, true: Colors.primaryLight }}
-                thumbColor={whatsappNotifs ? Colors.primary : '#f4f3f4'}
-                disabled={savingNotifs}
-              />
-            </View>
-          </Card>
+      <View style={styles.groupedList}>
+        <View style={styles.groupedRow}>
+          <View style={[styles.groupedRowIconWrap, { backgroundColor: '#e0f2fe' }]}>
+            <Ionicons name="mail-outline" size={20} color={Colors.primary} />
+          </View>
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Avisos por Correo Electrónico</Text>
+            <Text style={styles.groupedRowSubtitle}>
+              Comprobantes digitales y modificaciones de agenda
+            </Text>
+          </View>
+          <Switch
+            value={emailNotifs}
+            onValueChange={(val) => handleToggleNotifications('email', val)}
+            trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+            thumbColor={emailNotifs ? Colors.primary : '#f4f3f4'}
+            disabled={savingNotifs}
+          />
         </View>
 
-        {/* Privacidad de la Cuenta (Estilo Web / Mercado Libre) */}
-        <View style={styles.sectionWrap}>
-          <Text style={styles.sectionHeader}>Privacidad de la Cuenta</Text>
-          <Card style={styles.settingsCard}>
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1, paddingRight: Spacing.sm }}>
-                <Text style={styles.settingLabel}>Compartir Teléfono con Negocios</Text>
-                <Text style={styles.settingDesc}>
-                  Permite que los locales te contacten directamente si surge algún cambio o reprogramación
-                </Text>
-              </View>
-              <Switch
-                value={privacySharePhone}
-                onValueChange={setPrivacySharePhone}
-                trackColor={{ false: Colors.border, true: Colors.primaryLight }}
-                thumbColor={privacySharePhone ? Colors.primary : '#f4f3f4'}
-              />
-            </View>
+        <View style={styles.groupedDivider} />
 
-            <View style={styles.divider} />
+        <View style={styles.groupedRow}>
+          <View style={[styles.groupedRowIconWrap, { backgroundColor: '#ecfdf5' }]}>
+            <Ionicons name="logo-whatsapp" size={20} color="#059669" />
+          </View>
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Recordatorios por WhatsApp</Text>
+            <Text style={styles.groupedRowSubtitle}>
+              Aviso automático de cortesía 2 horas antes de tu turno
+            </Text>
+          </View>
+          <Switch
+            value={whatsappNotifs}
+            onValueChange={(val) => handleToggleNotifications('whatsapp', val)}
+            trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+            thumbColor={whatsappNotifs ? Colors.primary : '#f4f3f4'}
+            disabled={savingNotifs}
+          />
+        </View>
+      </View>
 
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1, paddingRight: Spacing.sm }}>
-                <Text style={styles.settingLabel}>Avisos del Sistema</Text>
-                <Text style={styles.settingDesc}>
-                  Novedades importantes sobre tu cuenta y mejoras de la plataforma
-                </Text>
-              </View>
-              <Switch
-                value={privacySystemNews}
-                onValueChange={setPrivacySystemNews}
-                trackColor={{ false: Colors.border, true: Colors.primaryLight }}
-                thumbColor={privacySystemNews ? Colors.primary : '#f4f3f4'}
-              />
-            </View>
+      <Text style={[styles.subViewHeaderDesc, { marginTop: Spacing.md, textAlign: 'center' }]}>
+        ✓ Los cambios se guardan automáticamente en tu perfil.
+      </Text>
+    </ScrollView>
+  );
 
-            <View style={styles.divider} />
+  // ==============================================================
+  // SUB-VISTA 5: PRIVACIDAD Y DATOS
+  // ==============================================================
+  const renderPrivacySubView = () => (
+    <ScrollView contentContainerStyle={styles.subViewContent} showsVerticalScrollIndicator={false}>
+      <Text style={styles.subViewHeaderDesc}>
+        Controlá cómo se comparten tus datos y consultá las normativas de protección de datos personales.
+      </Text>
 
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1, paddingRight: Spacing.sm }}>
-                <Text style={styles.settingLabel}>Visibilidad Básica de Perfil</Text>
-                <Text style={styles.settingDesc}>
-                  Permite mostrar tu nombre a los profesionales al momento de reservar
-                </Text>
-              </View>
-              <Switch
-                value={privacyProfilePublic}
-                onValueChange={setPrivacyProfilePublic}
-                trackColor={{ false: Colors.border, true: Colors.primaryLight }}
-                thumbColor={privacyProfilePublic ? Colors.primary : '#f4f3f4'}
-              />
-            </View>
-          </Card>
+      <Text style={styles.sectionHeaderTitle}>PERMISOS Y VISIBILIDAD</Text>
+      <View style={styles.groupedList}>
+        <View style={styles.groupedRow}>
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Compartir teléfono con comercios</Text>
+            <Text style={styles.groupedRowSubtitle}>
+              Permite que el local te llame ante emergencias o cambios
+            </Text>
+          </View>
+          <Switch
+            value={privacySharePhone}
+            onValueChange={setPrivacySharePhone}
+            trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+            thumbColor={privacySharePhone ? Colors.primary : '#f4f3f4'}
+          />
         </View>
 
-        {/* Support & Help Section */}
-        <View style={styles.sectionWrap}>
-          <Text style={styles.sectionHeader}>Ayuda y Soporte</Text>
-          <Card style={styles.settingsCard}>
-            <TouchableOpacity
-              style={styles.supportRow}
-              onPress={() => setShowBugModal(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.supportIconWrap}>
-                <Ionicons name="bug-outline" size={20} color={Colors.primary} />
-              </View>
-              <View style={{ flex: 1, marginHorizontal: Spacing.sm }}>
-                <Text style={styles.settingLabel}>Reportar un problema técnico</Text>
-                <Text style={styles.settingDesc}>
-                  Informanos sobre cualquier inconveniente o error en la aplicación
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textDisabled} />
-            </TouchableOpacity>
-          </Card>
+        <View style={styles.groupedDivider} />
+
+        <View style={styles.groupedRow}>
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Novedades y mejoras del servicio</Text>
+            <Text style={styles.groupedRowSubtitle}>
+              Recibir avisos sobre nuevas funciones de Turnos Ya
+            </Text>
+          </View>
+          <Switch
+            value={privacySystemNews}
+            onValueChange={setPrivacySystemNews}
+            trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+            thumbColor={privacySystemNews ? Colors.primary : '#f4f3f4'}
+          />
         </View>
 
-        {/* Developer / Network Connection Settings */}
-        <View style={styles.sectionWrap}>
+        <View style={styles.groupedDivider} />
+
+        <View style={styles.groupedRow}>
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Perfil visible en reservas</Text>
+            <Text style={styles.groupedRowSubtitle}>
+              Muestra tu nombre al profesional asignado
+            </Text>
+          </View>
+          <Switch
+            value={privacyProfilePublic}
+            onValueChange={setPrivacyProfilePublic}
+            trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+            thumbColor={privacyProfilePublic ? Colors.primary : '#f4f3f4'}
+          />
+        </View>
+      </View>
+
+      <Text style={[styles.sectionHeaderTitle, { marginTop: Spacing.xl }]}>
+        PROTECCIÓN DE DATOS (LEY 25.326)
+      </Text>
+      <View style={styles.groupedList}>
+        <TouchableOpacity
+          style={styles.groupedRow}
+          onPress={() => Alert.alert('Términos y Condiciones', 'Consultá la versión completa de Términos y Condiciones en la web oficial.')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="document-text-outline" size={20} color={Colors.primary} style={{ marginRight: 12 }} />
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Términos y Condiciones Generales</Text>
+            <Text style={styles.groupedRowSubtitle}>Políticas de uso del servicio</Text>
+          </View>
+          <Ionicons name="open-outline" size={16} color={Colors.textDisabled} />
+        </TouchableOpacity>
+
+        <View style={styles.groupedDivider} />
+
+        <TouchableOpacity
+          style={styles.groupedRow}
+          onPress={() => Alert.alert('Privacidad', 'Turnos Ya cumple estrictamente con la Ley 25.326 de Protección de Datos Personales de la República Argentina.')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="shield-outline" size={20} color={Colors.primary} style={{ marginRight: 12 }} />
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Política de Privacidad y Cookies</Text>
+            <Text style={styles.groupedRowSubtitle}>Tratamiento confidencial de tus datos</Text>
+          </View>
+          <Ionicons name="open-outline" size={16} color={Colors.textDisabled} />
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+
+  // ==============================================================
+  // SUB-VISTA 6: SERVIDOR Y RED (QA / DESARROLLADOR)
+  // ==============================================================
+  const renderNetworkSubView = () => (
+    <ScrollView contentContainerStyle={styles.subViewContent} showsVerticalScrollIndicator={false}>
+      <Text style={styles.subViewHeaderDesc}>
+        Ajustá el punto de enlace de la API. Usá la Nube cuando estés conectado a datos móviles (4G/5G).
+      </Text>
+
+      <Card style={styles.formCard}>
+        <Text style={styles.formSectionTitle}>Servidor Activo</Text>
+        <View style={styles.networkStatusRow}>
+          <View style={[styles.serverDot, { backgroundColor: isConnectedToCloud ? '#059669' : Colors.primary }]} />
+          <Text style={styles.networkStatusText}>
+            {isConnectedToCloud ? 'Conectado a la Nube (Render Cloud)' : 'Conectado a PC Local (Wi-Fi)'}
+          </Text>
+        </View>
+
+        <View style={styles.presetButtonsRow}>
           <TouchableOpacity
-            style={styles.devHeaderToggle}
-            onPress={() => setShowConfig(!showConfig)}
+            style={[styles.presetBtn, isConnectedToCloud && styles.presetBtnActive]}
+            onPress={() => handleSelectServerPreset(CLOUD_API_URL)}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.sectionHeader}>Servidor y Base de Datos</Text>
-              <View style={[styles.serverPill, isConnectedToCloud ? styles.serverPillCloud : styles.serverPillLocal]}>
-                <Text style={[styles.serverPillText, isConnectedToCloud ? styles.serverPillTextCloud : styles.serverPillTextLocal]}>
-                  {isConnectedToCloud ? '🌐 Nube (Render)' : '💻 PC Local'}
-                </Text>
-              </View>
-            </View>
-            <Ionicons
-              name={showConfig ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={Colors.textSecondary}
-            />
+            <Ionicons name="cloud-outline" size={18} color={isConnectedToCloud ? Colors.white : Colors.primary} />
+            <Text style={[styles.presetBtnText, isConnectedToCloud && styles.presetBtnTextActive]}>
+              Nube (Render)
+            </Text>
           </TouchableOpacity>
 
-          {showConfig && (
-            <Card style={styles.settingsCard}>
-              <Text style={styles.configHelpText}>
-                Elegí a qué backend conectar tu app. Para celulares en 4G o fuera de la red local, utilizá la Nube.
-              </Text>
-
-              {/* Botones rápidos de 1 toque */}
-              <View style={styles.presetButtonsRow}>
-                <TouchableOpacity
-                  style={[styles.presetBtn, isConnectedToCloud && styles.presetBtnActive]}
-                  onPress={() => handleSelectServerPreset(CLOUD_API_URL)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="cloud-done-outline" size={18} color={isConnectedToCloud ? Colors.white : Colors.primary} />
-                  <Text style={[styles.presetBtnText, isConnectedToCloud && styles.presetBtnTextActive]}>
-                    Nube (Render)
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.presetBtn, !isConnectedToCloud && styles.presetBtnActive]}
-                  onPress={() => handleSelectServerPreset(LOCAL_LAN_URL)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="laptop-outline" size={18} color={!isConnectedToCloud ? Colors.white : Colors.primary} />
-                  <Text style={[styles.presetBtnText, !isConnectedToCloud && styles.presetBtnTextActive]}>
-                    PC Local (Wi-Fi)
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              <TextInput
-                style={styles.configInput}
-                placeholder="https://..."
-                placeholderTextColor={Colors.textDisabled}
-                value={customApiUrl}
-                onChangeText={setCustomApiUrl}
-                autoCapitalize="none"
-              />
-              <Button
-                title="Guardar URL Manual"
-                size="sm"
-                onPress={handleSaveApiUrl}
-                style={{ marginTop: Spacing.xs }}
-              />
-            </Card>
-          )}
+          <TouchableOpacity
+            style={[styles.presetBtn, !isConnectedToCloud && styles.presetBtnActive]}
+            onPress={() => handleSelectServerPreset(LOCAL_LAN_URL)}
+          >
+            <Ionicons name="laptop-outline" size={18} color={!isConnectedToCloud ? Colors.white : Colors.primary} />
+            <Text style={[styles.presetBtnText, !isConnectedToCloud && styles.presetBtnTextActive]}>
+              PC Local (Wi-Fi)
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Logout Button */}
-        {user && (
-          <View style={{ marginTop: Spacing.xl }}>
-            <Button
-              title="Cerrar Sesión"
-              variant="outline"
-              size="lg"
-              onPress={handleLogout}
-              textStyle={{ color: Colors.danger }}
-              style={{ borderColor: Colors.statusCancelledBorder }}
-            />
+        <View style={[styles.inputGroup, { marginTop: Spacing.md }]}>
+          <Text style={styles.label}>URL personalizada</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={customApiUrl}
+            onChangeText={setCustomApiUrl}
+            placeholder="http://192.168.1.X:3000/api/v1"
+            placeholderTextColor={Colors.textDisabled}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+
+        <Button
+          title="Guardar URL Personalizada"
+          size="md"
+          onPress={handleSaveApiUrl}
+          style={{ marginTop: Spacing.sm }}
+        />
+      </Card>
+    </ScrollView>
+  );
+
+  // ==============================================================
+  // VISTA PRINCIPAL: HUB MODULAR
+  // ==============================================================
+  const renderHubView = () => (
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* 1. Tarjeta Hero de Usuario */}
+      {user ? (
+        <Card style={styles.userCard}>
+          <View style={styles.avatarWrap}>
+            <Text style={styles.avatarInitials}>
+              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            </Text>
           </View>
-        )}
-      </ScrollView>
-
-      {/* ============================================================== */}
-      {/* MODAL EDICIÓN DE DATOS PERSONALES (NOMBRE Y TELÉFONO)          */}
-      {/* ============================================================== */}
-      <Modal
-        visible={showEditProfileModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowEditProfileModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.modalContainer}
-          >
-            <View style={styles.modalCard}>
+          <View style={{ flex: 1, marginLeft: Spacing.md }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={styles.userName} numberOfLines={1}>{user.name}</Text>
               <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setShowEditProfileModal(false)}
-                hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                style={styles.editProfilePill}
+                onPress={() => setActiveSubView('personal_info')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
-              </TouchableOpacity>
-
-              <View style={styles.modalIconWrap}>
-                <Ionicons name="person-outline" size={28} color={Colors.primary} />
-              </View>
-              <Text style={styles.modalTitle}>Editar Datos Personales</Text>
-              <Text style={styles.modalSubtitle}>
-                Actualizá tu nombre y número de teléfono para que los comercios puedan identificarte.
-              </Text>
-
-              {editProfileError ? (
-                <View style={styles.modalErrorBox}>
-                  <Ionicons name="alert-circle" size={16} color={Colors.danger} />
-                  <Text style={styles.modalErrorText}>{editProfileError}</Text>
-                </View>
-              ) : null}
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Nombre y Apellido</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="Tu nombre completo"
-                  placeholderTextColor={Colors.textDisabled}
-                  value={editName}
-                  onChangeText={setEditName}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Número de Teléfono / WhatsApp</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder="+54 9 11 1234-5678"
-                  placeholderTextColor={Colors.textDisabled}
-                  value={editPhone}
-                  onChangeText={setEditPhone}
-                  keyboardType="phone-pad"
-                />
-              </View>
-
-              <Button
-                title="Guardar Cambios"
-                size="md"
-                loading={editProfileLoading}
-                onPress={handleSaveProfile}
-                style={{ marginTop: Spacing.sm }}
-              />
-
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setShowEditProfileModal(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancelar</Text>
+                <Ionicons name="create-outline" size={14} color={Colors.primary} />
+                <Text style={styles.editProfilePillText}>Editar</Text>
               </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
+
+            <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
+            {user.phone ? (
+              <Text style={styles.userPhone} numberOfLines={1}>📞 {user.phone}</Text>
+            ) : (
+              <TouchableOpacity onPress={() => setActiveSubView('personal_info')}>
+                <Text style={[styles.userPhone, { color: Colors.primary }]}>+ Agregar teléfono</Text>
+              </TouchableOpacity>
+            )}
+
+            <View style={styles.roleRow}>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleText}>{user.role?.toUpperCase() || 'CLIENTE'}</Text>
+              </View>
+            </View>
+          </View>
+        </Card>
+      ) : (
+        <Card style={styles.guestCard}>
+          <Ionicons name="person-circle-outline" size={54} color={Colors.primary} />
+          <Text style={styles.guestTitle}>¡Bienvenido a Turnos Ya!</Text>
+          <Text style={styles.guestDesc}>
+            Iniciá sesión o registrate para gestionar tus turnos y configurar tu cuenta.
+          </Text>
+          <View style={styles.guestActions}>
+            <Button
+              title="Iniciar Sesión"
+              size="md"
+              onPress={() => navigation.navigate('Login')}
+              style={{ flex: 1 }}
+            />
+            <Button
+              title="Registrarse"
+              variant="outline"
+              size="md"
+              onPress={() => navigation.navigate('Register')}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </Card>
+      )}
+
+      {/* 2. Píldora de Estado de Salud de la Cuenta */}
+      {user && (
+        <TouchableOpacity
+          style={[
+            styles.healthPillCard,
+            user.twoFactorEnabled
+              ? styles.healthPillGreen
+              : user.emailVerified
+              ? styles.healthPillBlue
+              : styles.healthPillAmber,
+          ]}
+          onPress={() => setActiveSubView('security')}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={user.twoFactorEnabled ? 'shield-checkmark' : user.emailVerified ? 'shield-half' : 'alert-circle'}
+            size={20}
+            color={user.twoFactorEnabled ? '#059669' : user.emailVerified ? Colors.primary : '#d97706'}
+          />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text
+              style={[
+                styles.healthPillTitle,
+                user.twoFactorEnabled
+                  ? styles.healthPillTitleGreen
+                  : user.emailVerified
+                  ? styles.healthPillTitleBlue
+                  : styles.healthPillTitleAmber,
+              ]}
+            >
+              {user.twoFactorEnabled
+                ? 'Cuenta Protegida · Doble Factor Activo'
+                : user.emailVerified
+                ? 'Nivel Estándar · Correo Verificado'
+                : 'Atención Requerida · Correo No Verificado'}
+            </Text>
+            <Text style={styles.healthPillDesc}>
+              {user.twoFactorEnabled
+                ? 'Tu cuenta tiene la máxima seguridad con Google Authenticator.'
+                : user.emailVerified
+                ? 'Podés activar Google Authenticator (2FA) para mayor seguridad.'
+                : 'Verificá tu correo electrónico para proteger tus turnos.'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+        </TouchableOpacity>
+      )}
+
+      {/* 3. Panel de Comercio / Onboarding Contextual */}
+      {user && selectedBusiness?.status === 'pending_approval' && (
+        <View style={styles.bizStatusCardPending}>
+          <View style={styles.bizStatusHeader}>
+            <View style={styles.bizStatusIconWrapPending}>
+              <Ionicons name="time" size={18} color="#009ee3" />
+            </View>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.bizStatusTitlePending}>Tu negocio está en revisión</Text>
+              <Text style={styles.bizStatusDescPending}>
+                Estamos evaluando los datos de "{selectedBusiness.name}". Te avisaremos por email.
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.bizStatusDossierBtn}
+            onPress={() => setDossierVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="eye-outline" size={15} color="#009ee3" />
+            <Text style={styles.bizStatusDossierBtnText}>Ver ficha completa enviada</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+      )}
+
+      {/* 4. Switcher Admin a Modo Dueño */}
+      {user && isAdmin && (
+        <View style={styles.adminBanner}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <Ionicons name="shield-checkmark" size={16} color={Colors.primary} />
+              <Text style={styles.adminBannerTitle}>Modo Administrador</Text>
+            </View>
+            <Text style={styles.adminBannerDesc}>
+              Podés alternar a la vista de Dueño de Comercio para gestionar turnos.
+            </Text>
+          </View>
+          <Button
+            title="Ir a Dueño"
+            size="sm"
+            onPress={() => setRoleMode('owner')}
+            style={styles.adminBannerBtn}
+          />
+        </View>
+      )}
+
+      {/* ============================================================== */}
+      {/* GRUPO 1: CUENTA Y DATOS                                        */}
+      {/* ============================================================== */}
+      {user && (
+        <View style={styles.sectionWrap}>
+          <Text style={styles.sectionHeaderTitle}>CUENTA Y SEGURIDAD</Text>
+          <View style={styles.groupedList}>
+            {/* Datos Personales */}
+            <TouchableOpacity
+              style={styles.groupedRow}
+              onPress={() => setActiveSubView('personal_info')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.groupedRowIconWrap, { backgroundColor: '#eff6ff' }]}>
+                <Ionicons name="person-outline" size={20} color={Colors.primary} />
+              </View>
+              <View style={styles.groupedRowBody}>
+                <Text style={styles.groupedRowTitle}>Datos Personales</Text>
+                <Text style={styles.groupedRowSubtitle}>
+                  {user.phone ? `${user.name} · ${user.phone}` : `${user.name} · Sin teléfono`}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+            </TouchableOpacity>
+
+            <View style={styles.groupedDivider} />
+
+            {/* Seguridad y Acceso */}
+            <TouchableOpacity
+              style={styles.groupedRow}
+              onPress={() => setActiveSubView('security')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.groupedRowIconWrap, { backgroundColor: '#ecfdf5' }]}>
+                <Ionicons name="shield-checkmark-outline" size={20} color="#059669" />
+              </View>
+              <View style={styles.groupedRowBody}>
+                <Text style={styles.groupedRowTitle}>Seguridad y Contraseña</Text>
+                <Text style={styles.groupedRowSubtitle}>
+                  {user.twoFactorEnabled ? '2FA activo · Máxima protección' : 'Contraseña y doble factor (2FA)'}
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.statusPill,
+                  user.twoFactorEnabled ? styles.statusPillGreen : styles.statusPillGray,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusPillText,
+                    user.twoFactorEnabled ? styles.statusPillTextGreen : styles.statusPillTextGray,
+                  ]}
+                >
+                  {user.twoFactorEnabled ? '2FA Activo' : 'Básica'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+            </TouchableOpacity>
+
+            <View style={styles.groupedDivider} />
+
+            {/* Dispositivos vinculados */}
+            <TouchableOpacity
+              style={styles.groupedRow}
+              onPress={() => setActiveSubView('devices')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.groupedRowIconWrap, { backgroundColor: '#f1f5f9' }]}>
+                <Ionicons name="laptop-outline" size={20} color={Colors.textSecondary} />
+              </View>
+              <View style={styles.groupedRowBody}>
+                <Text style={styles.groupedRowTitle}>Dispositivos Vinculados</Text>
+                <Text style={styles.groupedRowSubtitle}>
+                  {sessions.length > 0
+                    ? `${sessions.length} equipo${sessions.length > 1 ? 's' : ''} conectado${sessions.length > 1 ? 's' : ''}`
+                    : 'Gestioná tus sesiones abiertas'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ============================================================== */}
+      {/* GRUPO 2: PREFERENCIAS Y PRIVACIDAD                             */}
+      {/* ============================================================== */}
+      {user && (
+        <View style={styles.sectionWrap}>
+          <Text style={styles.sectionHeaderTitle}>PREFERENCIAS</Text>
+          <View style={styles.groupedList}>
+            {/* Notificaciones */}
+            <TouchableOpacity
+              style={styles.groupedRow}
+              onPress={() => setActiveSubView('notifications')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.groupedRowIconWrap, { backgroundColor: '#f5f3ff' }]}>
+                <Ionicons name="notifications-outline" size={20} color="#7c3aed" />
+              </View>
+              <View style={styles.groupedRowBody}>
+                <Text style={styles.groupedRowTitle}>Notificaciones y Alertas</Text>
+                <Text style={styles.groupedRowSubtitle}>
+                  {whatsappNotifs && emailNotifs
+                    ? 'WhatsApp y correo activos'
+                    : whatsappNotifs
+                    ? 'Solo WhatsApp activo'
+                    : emailNotifs
+                    ? 'Solo correo activo'
+                    : 'Alertas desactivadas'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+            </TouchableOpacity>
+
+            <View style={styles.groupedDivider} />
+
+            {/* Privacidad */}
+            <TouchableOpacity
+              style={styles.groupedRow}
+              onPress={() => setActiveSubView('privacy')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.groupedRowIconWrap, { backgroundColor: '#fffbeb' }]}>
+                <Ionicons name="lock-closed-outline" size={20} color="#d97706" />
+              </View>
+              <View style={styles.groupedRowBody}>
+                <Text style={styles.groupedRowTitle}>Privacidad y Legal</Text>
+                <Text style={styles.groupedRowSubtitle}>
+                  Visibilidad, Ley 25.326 y Términos y Condiciones
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ============================================================== */}
+      {/* GRUPO 3: AYUDA Y SISTEMA                                       */}
+      {/* ============================================================== */}
+      <View style={styles.sectionWrap}>
+        <Text style={styles.sectionHeaderTitle}>AYUDA Y SISTEMA</Text>
+        <View style={styles.groupedList}>
+          {/* Reporte de bug */}
+          <TouchableOpacity
+            style={styles.groupedRow}
+            onPress={() => setShowBugModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.groupedRowIconWrap, { backgroundColor: '#fef2f2' }]}>
+              <Ionicons name="bug-outline" size={20} color={Colors.danger} />
+            </View>
+            <View style={styles.groupedRowBody}>
+              <Text style={styles.groupedRowTitle}>Reportar un problema</Text>
+              <Text style={styles.groupedRowSubtitle}>
+                Avisanos si encontraste un error en la aplicación
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+          </TouchableOpacity>
+
+          <View style={styles.groupedDivider} />
+
+          {/* Servidor y red */}
+          <TouchableOpacity
+            style={styles.groupedRow}
+            onPress={() => setActiveSubView('network')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.groupedRowIconWrap, { backgroundColor: '#f1f5f9' }]}>
+              <Ionicons name="server-outline" size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.groupedRowBody}>
+              <Text style={styles.groupedRowTitle}>Servidor y Conexión (QA)</Text>
+              <Text style={styles.groupedRowSubtitle}>
+                {isConnectedToCloud ? 'Nube (Render)' : 'PC Local Wi-Fi'}
+              </Text>
+            </View>
+            <View style={styles.serverStatusBadge}>
+              <View style={[styles.serverDot, { backgroundColor: isConnectedToCloud ? '#059669' : Colors.primary }]} />
+              <Text style={styles.serverStatusBadgeText}>
+                {isConnectedToCloud ? 'Nube' : 'Local'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* 5. Cerrar Sesión */}
+      {user && (
+        <View style={{ marginTop: Spacing.xl, marginBottom: Spacing.lg }}>
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
+            <Text style={styles.logoutBtnText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.versionFooter}>Turnos Ya Mobile · Versión 1.0.0 (Build 2026)</Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* Barra de navegación superior adaptativa */}
+      <View style={styles.navBar}>
+        {activeSubView !== 'hub' ? (
+          <TouchableOpacity
+            style={styles.navBackBtn}
+            onPress={() => setActiveSubView('hub')}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="arrow-back" size={22} color={Colors.primary} />
+            <Text style={styles.navBackText}>Volver</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        <Text
+          style={[
+            styles.navTitle,
+            activeSubView !== 'hub' && { textAlign: 'center', flex: 1, marginRight: 40 },
+          ]}
+          numberOfLines={1}
+        >
+          {SUBVIEW_TITLES[activeSubView]}
+        </Text>
+      </View>
+
+      {/* Renderizado de la vista activa */}
+      {activeSubView === 'hub' && renderHubView()}
+      {activeSubView === 'personal_info' && renderPersonalInfoSubView()}
+      {activeSubView === 'security' && renderSecuritySubView()}
+      {activeSubView === 'devices' && renderDevicesSubView()}
+      {activeSubView === 'notifications' && renderNotificationsSubView()}
+      {activeSubView === 'privacy' && renderPrivacySubView()}
+      {activeSubView === 'network' && renderNetworkSubView()}
 
       {/* ============================================================== */}
       {/* MODAL 2FA (GOOGLE AUTHENTICATOR)                               */}
@@ -1347,141 +1595,114 @@ export const ProfileScreen: React.FC = () => {
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
 
-              {twoFactorLoading ? (
-                <View style={{ paddingVertical: Spacing.xxl, alignItems: 'center' }}>
-                  <ActivityIndicator size="large" color={Colors.primary} />
-                  <Text style={{ marginTop: Spacing.md, color: Colors.textSecondary, fontSize: Typography.sizes.sm }}>
-                    Procesando seguridad...
-                  </Text>
+              <View style={styles.modalIconWrap}>
+                <Ionicons name="shield-checkmark-outline" size={28} color={Colors.primary} />
+              </View>
+              <Text style={styles.modalTitle}>Google Authenticator</Text>
+              <Text style={styles.modalSubtitle}>
+                {twoFactorStep === 'setup'
+                  ? 'Configurá tu doble factor de autenticación para proteger tus inicios de sesión.'
+                  : twoFactorStep === 'backup_codes'
+                  ? 'Guardá estos códigos de respaldo en un lugar seguro.'
+                  : 'Ingresá tu contraseña actual para desactivar el doble factor.'}
+              </Text>
+
+              {twoFactorError ? (
+                <View style={styles.modalErrorBox}>
+                  <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+                  <Text style={styles.modalErrorText}>{twoFactorError}</Text>
                 </View>
-              ) : twoFactorStep === 'setup' ? (
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  <View style={styles.modalIconWrap}>
-                    <Ionicons name="shield-checkmark" size={28} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.modalTitle}>Configurar 2FA</Text>
-                  <Text style={styles.modalSubtitle}>
-                    Google Authenticator genera códigos temporales de 6 dígitos que protegen tu cuenta.
+              ) : null}
+
+              {twoFactorStep === 'setup' && (
+                <View>
+                  <Text style={styles.modalDesc}>
+                    Copiá la clave secreta y pegala en tu aplicación Google Authenticator o Authy:
                   </Text>
 
-                  {twoFactorError ? (
-                    <View style={styles.modalErrorBox}>
-                      <Ionicons name="alert-circle" size={16} color={Colors.danger} />
-                      <Text style={styles.modalErrorText}>{twoFactorError}</Text>
-                    </View>
-                  ) : null}
-
-                  <Text style={styles.instructionStep}>
-                    1. Abrí <Text style={{ fontWeight: 'bold' }}>Google Authenticator</Text> en tu teléfono.
-                  </Text>
-                  <Text style={styles.instructionStep}>
-                    2. Tocá <Text style={{ fontWeight: 'bold' }}>+ y seleccioná "Ingresar clave de configuración"</Text>.
-                  </Text>
-                  <Text style={styles.instructionStep}>
-                    3. Ingresá esta clave manual de configuración:
-                  </Text>
-
-                  {/* Secret Block */}
-                  <View style={styles.secretBox}>
-                    <Text style={styles.secretText} selectable>
-                      {twoFactorSecret || 'CARGANDO-CLAVE...'}
+                  <TouchableOpacity
+                    style={styles.secretKeyBox}
+                    onPress={handleCopySecret}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.secretKeyText} numberOfLines={1}>
+                      {twoFactorSecret || 'Cargando clave secreta...'}
                     </Text>
-                    <TouchableOpacity
-                      style={[styles.copyBtn, twoFactorCopied && styles.copyBtnSuccess]}
-                      onPress={handleCopySecret}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons
-                        name={twoFactorCopied ? 'checkmark' : 'copy-outline'}
-                        size={15}
-                        color={twoFactorCopied ? Colors.white : Colors.primary}
-                      />
-                      <Text style={[styles.copyBtnText, twoFactorCopied && { color: Colors.white }]}>
-                        {twoFactorCopied ? '¡Copiado!' : 'Copiar'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                    <Ionicons
+                      name={twoFactorCopied ? 'checkmark' : 'copy-outline'}
+                      size={18}
+                      color={twoFactorCopied ? '#059669' : Colors.primary}
+                    />
+                  </TouchableOpacity>
 
-                  <Text style={[styles.instructionStep, { marginTop: Spacing.sm }]}>
-                    4. Escribí el código de 6 dígitos que te muestra la app:
+                  <Text style={styles.secretKeyHint}>
+                    {twoFactorCopied ? '¡Clave copiada al portapapeles!' : 'Tocá la clave para copiarla'}
                   </Text>
 
-                  <TextInput
-                    style={styles.twoFactorInputBox}
-                    placeholder="123456"
-                    placeholderTextColor={Colors.textDisabled}
-                    value={twoFactorCodeInput}
-                    onChangeText={setTwoFactorCodeInput}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    autoFocus
-                  />
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Código de 6 dígitos generado por la app</Text>
+                    <TextInput
+                      style={styles.twoFactorInputBox}
+                      placeholder="123456"
+                      placeholderTextColor={Colors.textDisabled}
+                      value={twoFactorCodeInput}
+                      onChangeText={setTwoFactorCodeInput}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                  </View>
 
                   <Button
                     title="Verificar y Activar 2FA"
                     size="md"
+                    loading={twoFactorLoading}
+                    disabled={twoFactorCodeInput.length < 6}
                     onPress={handleVerifyAndEnableTwoFactor}
                     style={{ marginTop: Spacing.md }}
                   />
-                </ScrollView>
-              ) : twoFactorStep === 'backup_codes' ? (
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  <View style={[styles.modalIconWrap, { backgroundColor: '#ecfdf5' }]}>
-                    <Ionicons name="checkmark-circle" size={32} color={Colors.success} />
-                  </View>
-                  <Text style={styles.modalTitle}>¡2FA Activado con Éxito!</Text>
-                  <Text style={styles.modalSubtitle}>
-                    Guardá estos códigos de respaldo en un lugar seguro. Si perdés tu app autenticadora, podrás usarlos para ingresar:
+                </View>
+              )}
+
+              {twoFactorStep === 'backup_codes' && (
+                <View>
+                  <Text style={styles.modalDesc}>
+                    Si perdés acceso a tu celular, podés ingresar a tu cuenta con uno de estos códigos:
                   </Text>
 
-                  <View style={styles.backupCodesWrap}>
+                  <View style={styles.backupCodesGrid}>
                     {twoFactorBackupCodes.map((code, idx) => (
-                      <View key={idx} style={styles.backupCodeChip}>
+                      <View key={idx} style={styles.backupCodePill}>
                         <Text style={styles.backupCodeText}>{code}</Text>
                       </View>
                     ))}
                   </View>
 
                   <TouchableOpacity
-                    style={[styles.copyBackupBtn, twoFactorCopied && styles.copyBtnSuccess]}
+                    style={styles.copyBackupCodesBtn}
                     onPress={handleCopyBackupCodes}
                     activeOpacity={0.8}
                   >
                     <Ionicons
                       name={twoFactorCopied ? 'checkmark' : 'copy-outline'}
                       size={16}
-                      color={twoFactorCopied ? Colors.white : Colors.primary}
+                      color={twoFactorCopied ? '#059669' : Colors.primary}
                     />
-                    <Text style={[styles.copyBackupBtnText, twoFactorCopied && { color: Colors.white }]}>
-                      {twoFactorCopied ? '¡Códigos Copiados!' : 'Copiar Todos los Códigos'}
+                    <Text style={styles.copyBackupCodesText}>
+                      {twoFactorCopied ? '¡Códigos copiados!' : 'Copiar todos los códigos'}
                     </Text>
                   </TouchableOpacity>
 
                   <Button
-                    title="Finalizar"
+                    title="Entendido, Guardar"
                     size="md"
                     onPress={() => setShowTwoFactorModal(false)}
-                    style={{ marginTop: Spacing.lg }}
+                    style={{ marginTop: Spacing.md }}
                   />
-                </ScrollView>
-              ) : (
-                /* Desactivar 2FA */
+                </View>
+              )}
+
+              {twoFactorStep === 'disable' && (
                 <View>
-                  <View style={[styles.modalIconWrap, { backgroundColor: '#fef2f2' }]}>
-                    <Ionicons name="lock-open-outline" size={28} color={Colors.danger} />
-                  </View>
-                  <Text style={styles.modalTitle}>Desactivar 2FA</Text>
-                  <Text style={styles.modalSubtitle}>
-                    Para desactivar el doble factor, por favor ingresá tu contraseña actual por seguridad:
-                  </Text>
-
-                  {twoFactorError ? (
-                    <View style={styles.modalErrorBox}>
-                      <Ionicons name="alert-circle" size={16} color={Colors.danger} />
-                      <Text style={styles.modalErrorText}>{twoFactorError}</Text>
-                    </View>
-                  ) : null}
-
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Contraseña Actual</Text>
                     <TextInput
@@ -1491,26 +1712,26 @@ export const ProfileScreen: React.FC = () => {
                       value={twoFactorDisablePassword}
                       onChangeText={setTwoFactorDisablePassword}
                       secureTextEntry
-                      autoFocus
                     />
                   </View>
 
                   <Button
-                    title="Confirmar Desactivación"
+                    title="Desactivar 2FA"
+                    variant="danger"
                     size="md"
+                    loading={twoFactorLoading}
                     onPress={handleDisableTwoFactor}
-                    textStyle={{ color: Colors.white }}
-                    style={{ backgroundColor: Colors.danger, borderColor: Colors.danger, marginTop: Spacing.md }}
+                    style={{ marginTop: Spacing.md }}
                   />
-
-                  <TouchableOpacity
-                    style={styles.modalCancelBtn}
-                    onPress={() => setShowTwoFactorModal(false)}
-                  >
-                    <Text style={styles.modalCancelText}>Cancelar</Text>
-                  </TouchableOpacity>
                 </View>
               )}
+
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowTwoFactorModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -1611,17 +1832,23 @@ export const ProfileScreen: React.FC = () => {
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
 
-              <View style={[
-                styles.modalIconWrap,
-                passwordChangeStep === 'no_methods' && { backgroundColor: '#fee2e2' }
-              ]}>
+              <View
+                style={[
+                  styles.modalIconWrap,
+                  passwordChangeStep === 'no_methods' && { backgroundColor: '#fee2e2' },
+                ]}
+              >
                 <Ionicons
                   name={
-                    passwordChangeStep === 'no_methods' ? 'shield-outline' :
-                    passwordChangeStep === 'choose_method' ? 'shield-checkmark-outline' :
-                    passwordChangeStep === 'verify_2fa' ? 'phone-portrait-outline' :
-                    passwordChangeStep === 'verify_email' ? 'mail-outline' :
-                    'key-outline'
+                    passwordChangeStep === 'no_methods'
+                      ? 'shield-outline'
+                      : passwordChangeStep === 'choose_method'
+                      ? 'shield-checkmark-outline'
+                      : passwordChangeStep === 'verify_2fa'
+                      ? 'phone-portrait-outline'
+                      : passwordChangeStep === 'verify_email'
+                      ? 'mail-outline'
+                      : 'key-outline'
                   }
                   size={28}
                   color={passwordChangeStep === 'no_methods' ? Colors.danger : Colors.primary}
@@ -1629,11 +1856,15 @@ export const ProfileScreen: React.FC = () => {
               </View>
 
               <Text style={styles.modalTitle}>
-                {passwordChangeStep === 'no_methods' ? 'Verificación Requerida' :
-                 passwordChangeStep === 'choose_method' ? 'Verificar Identidad' :
-                 passwordChangeStep === 'verify_2fa' ? 'Google Authenticator' :
-                 passwordChangeStep === 'verify_email' ? 'Verificación por Correo' :
-                 'Nueva Contraseña'}
+                {passwordChangeStep === 'no_methods'
+                  ? 'Verificación Requerida'
+                  : passwordChangeStep === 'choose_method'
+                  ? 'Verificar Identidad'
+                  : passwordChangeStep === 'verify_2fa'
+                  ? 'Google Authenticator'
+                  : passwordChangeStep === 'verify_email'
+                  ? 'Verificación por Correo'
+                  : 'Nueva Contraseña'}
               </Text>
 
               <Text style={styles.modalSubtitle}>
@@ -1926,6 +2157,17 @@ export const ProfileScreen: React.FC = () => {
       </Modal>
 
       {/* ============================================================== */}
+      {/* MODAL FICHA COMPLETA DE NEGOCIO                                */}
+      {/* ============================================================== */}
+      {selectedBusiness && (
+        <BusinessDossierModal
+          visible={dossierVisible}
+          business={selectedBusiness}
+          onClose={() => setDossierVisible(false)}
+        />
+      )}
+
+      {/* ============================================================== */}
       {/* MODAL REPORTE DE BUGS / SOPORTE TÉCNICO                         */}
       {/* ============================================================== */}
       <BugReportModal
@@ -1942,92 +2184,489 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   navBar: {
+    height: 52,
     backgroundColor: Colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   navTitle: {
-    fontSize: Typography.sizes.xl,
+    fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
     color: Colors.textTitle,
   },
+  navBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingRight: 8,
+  },
+  navBackText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semiBold,
+    color: Colors.primary,
+  },
   scrollContent: {
     padding: Spacing.lg,
-    paddingBottom: 60,
+    paddingBottom: Spacing.xxxl * 2,
   },
+  subViewContent: {
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xxxl * 2,
+  },
+  subViewHeaderDesc: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+    lineHeight: 18,
+  },
+  // User Card
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   avatarWrap: {
     width: 60,
     height: 60,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.primary,
+    borderRadius: 30,
+    backgroundColor: '#eff6ff',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#bfdbfe',
   },
   avatarInitials: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
-    color: Colors.white,
+    fontSize: Typography.sizes.xl,
+    fontWeight: Typography.weights.extraBold,
+    color: Colors.primary,
   },
   userName: {
-    fontSize: Typography.sizes.lg,
+    fontSize: Typography.sizes.md,
     fontWeight: Typography.weights.bold,
     color: Colors.textTitle,
     flex: 1,
   },
-  editProfileBtn: {
-    padding: 4,
-  },
   userEmail: {
-    fontSize: Typography.sizes.sm,
+    fontSize: Typography.sizes.xs,
     color: Colors.textSecondary,
     marginTop: 2,
   },
   userPhone: {
-    fontSize: Typography.sizes.xs + 1,
-    color: Colors.textSecondary,
+    fontSize: Typography.sizes.xs,
+    color: Colors.textMain,
     marginTop: 2,
+    fontWeight: Typography.weights.medium,
+  },
+  editProfilePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  editProfilePillText: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.primary,
+    fontWeight: Typography.weights.semiBold,
   },
   roleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     marginTop: 6,
+    gap: Spacing.sm,
   },
   roleBadge: {
     backgroundColor: Colors.primaryLight,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
-    alignSelf: 'flex-start',
   },
   roleText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 10,
     fontWeight: Typography.weights.bold,
     color: Colors.primary,
+    letterSpacing: 0.5,
   },
-  verifiedPill: {
+  // Health Pill Card
+  healthPillCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginBottom: Spacing.md,
+  },
+  healthPillGreen: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+  },
+  healthPillBlue: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  healthPillAmber: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+  },
+  healthPillTitle: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+  },
+  healthPillTitleGreen: { color: '#065f46' },
+  healthPillTitleBlue: { color: '#1e40af' },
+  healthPillTitleAmber: { color: '#92400e' },
+  healthPillDesc: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  // Security Score Card (en sub-vista de seguridad)
+  securityScoreCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.lg,
+  },
+  securityScoreHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  securityScoreTitle: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textTitle,
+  },
+  securityScoreDesc: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  // Sections & Grouped Inset Lists
+  sectionWrap: {
+    marginBottom: Spacing.lg,
+  },
+  sectionHeaderTitle: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: Spacing.xs,
+    marginLeft: Spacing.xs,
+  },
+  groupedList: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  groupedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+  },
+  groupedDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginLeft: 56,
+  },
+  groupedRowIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  groupedRowBody: {
+    flex: 1,
+    marginRight: Spacing.sm,
+  },
+  groupedRowTitle: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semiBold,
+    color: Colors.textTitle,
+  },
+  groupedRowSubtitle: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  groupedActionLabel: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.primary,
+    fontWeight: Typography.weights.semiBold,
+    marginRight: 4,
+  },
+  // Status Pills
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    marginRight: 4,
+  },
+  statusPillGreen: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  statusPillGray: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  statusPillAmber: {
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+  },
+  statusPillTextGreen: { color: '#059669' },
+  statusPillTextGray: { color: Colors.textSecondary },
+  statusPillTextAmber: { color: '#d97706' },
+  statusPillRoadmap: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  statusPillRoadmapText: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.medium,
+  },
+  // Server Status Badge
+  serverStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginRight: 4,
+  },
+  serverStatusBadgeText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textMain,
+  },
+  serverDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  // Subview Forms
+  formCard: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  formSectionTitle: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textTitle,
+    marginBottom: 2,
+  },
+  formSectionSubtitle: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+    lineHeight: 16,
+  },
+  inputGroup: {
+    marginBottom: Spacing.md,
+  },
+  label: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semiBold,
+    color: Colors.textTitle,
+    marginBottom: 6,
+  },
+  modalInput: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    height: 44,
+    fontSize: Typography.sizes.sm,
+    color: Colors.textMain,
+  },
+  emailReadOnlyBox: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  emailReadOnlyText: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.medium,
+  },
+  verifiedInlineTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  verifiedInlineText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    color: '#059669',
+  },
+  verifyActionTag: {
+    backgroundColor: '#eff6ff',
     paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  verifyActionText: {
+    fontSize: 11,
+    fontWeight: Typography.weights.bold,
+    color: Colors.primary,
+  },
+  // Devices & Sessions
+  currentDevicePill: {
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
   },
-  verifiedPillText: {
+  currentDeviceText: {
+    fontSize: 9,
+    fontWeight: Typography.weights.bold,
+    color: '#059669',
+  },
+  revokeSessionBtn: {
+    padding: 6,
+    marginLeft: 6,
+  },
+  revokeAllSessionsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    paddingVertical: 12,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.md,
+  },
+  revokeAllSessionsText: {
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
+    color: Colors.danger,
   },
-  guestCard: {
+  // Network Subview
+  networkStatusRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
+    gap: 8,
+    marginBottom: Spacing.md,
+  },
+  networkStatusText: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.textTitle,
+    fontWeight: Typography.weights.medium,
+  },
+  presetButtonsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  presetBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  presetBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  presetBtnText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textTitle,
+  },
+  presetBtnTextActive: {
+    color: Colors.white,
+  },
+  // Logout & Footer
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+    paddingVertical: 12,
+    borderRadius: BorderRadius.lg,
+  },
+  logoutBtnText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: Colors.danger,
+  },
+  versionFooter: {
+    fontSize: 11,
+    color: Colors.textDisabled,
+    textAlign: 'center',
+    marginTop: Spacing.md,
+  },
+  // Guest Card
+  guestCard: {
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
   },
   guestTitle: {
     fontSize: Typography.sizes.lg,
@@ -2039,323 +2678,99 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginTop: Spacing.xs,
-    marginBottom: Spacing.md,
+    marginTop: 4,
+    marginBottom: Spacing.lg,
+    lineHeight: 18,
   },
   guestActions: {
     flexDirection: 'row',
     gap: Spacing.md,
     width: '100%',
   },
-  sectionWrap: {
-    marginTop: Spacing.md,
+  // Business Status Banners
+  bizStatusCardPending: {
+    backgroundColor: '#f0f9ff',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  sectionHeaderRow: {
+  bizStatusHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
   },
-  sectionHeader: {
-    fontSize: Typography.sizes.md,
+  bizStatusIconWrapPending: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#e0f2fe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bizStatusTitlePending: {
+    fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
-    color: Colors.textTitle,
-    marginBottom: Spacing.sm,
+    color: '#0369a1',
   },
-  devHeaderToggle: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
-  },
-  serverPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.full,
-  },
-  serverPillCloud: {
-    backgroundColor: '#ecfdf5',
-  },
-  serverPillLocal: {
-    backgroundColor: '#eff6ff',
-  },
-  serverPillText: {
+  bizStatusDescPending: {
     fontSize: 11,
-    fontWeight: Typography.weights.bold,
+    color: '#0284c7',
+    marginTop: 2,
+    lineHeight: 15,
   },
-  serverPillTextCloud: {
-    color: '#059669',
-  },
-  serverPillTextLocal: {
-    color: Colors.primary,
-  },
-  presetButtonsRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.sm,
-  },
-  presetBtn: {
-    flex: 1,
+  bizStatusDossierBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: BorderRadius.md,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceAlt,
+    borderColor: '#bae6fd',
+    borderRadius: BorderRadius.md,
+    paddingVertical: 7,
+    marginTop: Spacing.sm,
   },
-  presetBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  presetBtnText: {
-    fontSize: Typography.sizes.xs + 1,
+  bizStatusDossierBtnText: {
+    fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
-    color: Colors.primary,
-  },
-  presetBtnTextActive: {
-    color: Colors.white,
-  },
-  settingsCard: {
-    padding: Spacing.md,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  securityItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-  },
-  settingLabel: {
-    fontSize: Typography.sizes.sm + 1,
-    fontWeight: Typography.weights.semiBold,
-    color: Colors.textTitle,
-  },
-  settingDesc: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.textSecondary,
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: Spacing.md,
-  },
-  configHelpText: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: Spacing.sm,
-  },
-  configInput: {
-    backgroundColor: Colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: Colors.borderInput,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.sm + 2,
-    fontSize: Typography.sizes.xs + 1,
-    color: Colors.textMain,
-    marginTop: Spacing.xs,
+    color: '#0284c7',
   },
   adminBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef3c7',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: Colors.border,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.md,
-    gap: 8,
   },
   adminBannerTitle: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.bold,
-    color: '#92400e',
-  },
-  adminBannerSubtitle: {
     fontSize: Typography.sizes.xs,
-    color: '#78350f',
+    fontWeight: Typography.weights.bold,
+    color: Colors.primary,
+  },
+  adminBannerDesc: {
+    fontSize: 11,
+    color: Colors.textSecondary,
     marginTop: 2,
-    lineHeight: 16,
   },
   adminBannerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#d97706',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: BorderRadius.md,
-    gap: 4,
+    marginLeft: Spacing.sm,
   },
-  adminBannerBtnText: {
-    color: Colors.white,
-    fontWeight: Typography.weights.bold,
-    fontSize: Typography.sizes.xs + 1,
-  },
-  securityPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-  },
-  securityPillActive: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0',
-  },
-  securityPillText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-  },
-  securityPillTextActive: {
-    color: '#059669',
-  },
-  actionPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionPillText: {
-    fontSize: Typography.sizes.xs + 1,
-    fontWeight: Typography.weights.bold,
-  },
-  actionPillPrimary: {
-    backgroundColor: '#eff6ff',
-    borderColor: Colors.primary,
-  },
-  actionPillTextPrimary: {
-    color: Colors.primary,
-    fontSize: Typography.sizes.xs + 1,
-    fontWeight: Typography.weights.bold,
-  },
-  actionPillDanger: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
-  },
-  actionPillTextDanger: {
-    color: Colors.danger,
-    fontSize: Typography.sizes.xs + 1,
-    fontWeight: Typography.weights.bold,
-  },
-  actionPillWarning: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#fde68a',
-  },
-  actionPillTextWarning: {
-    color: '#b45309',
-    fontSize: Typography.sizes.xs + 1,
-    fontWeight: Typography.weights.bold,
-  },
-  actionPillOutline: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-  },
-  actionPillTextOutline: {
-    color: Colors.textTitle,
-    fontSize: Typography.sizes.xs + 1,
-    fontWeight: Typography.weights.semiBold,
-  },
-  sessionsSubDesc: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-    lineHeight: 16,
-  },
-  sessionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.xs + 2,
-  },
-  sessionDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 4,
-  },
-  deviceIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: BorderRadius.md,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deviceNameText: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semiBold,
-    color: Colors.textTitle,
-    flexShrink: 1,
-  },
-  deviceMetaText: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  currentBadge: {
-    backgroundColor: '#ecfdf5',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: BorderRadius.sm,
-  },
-  currentBadgeText: {
-    fontSize: 10,
-    fontWeight: Typography.weights.bold,
-    color: '#059669',
-  },
-  revokeSessionBtn: {
-    padding: 6,
-  },
-  revokeAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: Spacing.sm,
-    paddingVertical: Spacing.xs + 2,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    borderRadius: BorderRadius.md,
-    backgroundColor: '#fff5f5',
-  },
-  revokeAllBtnText: {
-    fontSize: Typography.sizes.xs + 1,
-    fontWeight: Typography.weights.bold,
-    color: Colors.danger,
-  },
-  supportRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  supportIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: BorderRadius.md,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // Modals Styling
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
     padding: Spacing.lg,
   },
   modalContainer: {
     width: '100%',
     maxWidth: 420,
-    maxHeight: '90%',
+    alignSelf: 'center',
   },
   modalCard: {
     backgroundColor: Colors.surface,
@@ -2364,40 +2779,45 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
-    shadowRadius: 20,
+    shadowRadius: 16,
     elevation: 8,
-    position: 'relative',
   },
   modalCloseBtn: {
     position: 'absolute',
     top: Spacing.md,
     right: Spacing.md,
     zIndex: 10,
-    padding: 6,
+    padding: 4,
   },
   modalIconWrap: {
     width: 52,
     height: 52,
-    borderRadius: BorderRadius.full,
-    backgroundColor: '#eff6ff',
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'center',
     marginBottom: Spacing.md,
+    alignSelf: 'center',
   },
   modalTitle: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
     color: Colors.textTitle,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   modalSubtitle: {
-    fontSize: Typography.sizes.xs + 1,
+    fontSize: Typography.sizes.xs,
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: Spacing.md,
+  },
+  modalDesc: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: Spacing.sm,
   },
   modalErrorBox: {
     flexDirection: 'row',
@@ -2415,50 +2835,20 @@ const styles = StyleSheet.create({
     color: Colors.danger,
     flex: 1,
   },
-  instructionStep: {
-    fontSize: Typography.sizes.xs + 1,
-    color: Colors.textTitle,
-    marginBottom: 4,
-    lineHeight: 18,
+  inputWithIcon: {
+    position: 'relative',
+    justifyContent: 'center',
   },
-  secretBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#f8fafc',
+  modalInputWithIcon: {
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: Colors.border,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    marginVertical: Spacing.xs,
-  },
-  secretText: {
+    paddingRight: 40,
+    height: 44,
     fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.bold,
-    color: Colors.textTitle,
-    letterSpacing: 2,
-    flex: 1,
-  },
-  copyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#eff6ff',
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: BorderRadius.sm,
-  },
-  copyBtnSuccess: {
-    backgroundColor: Colors.success,
-    borderColor: Colors.success,
-  },
-  copyBtnText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-    color: Colors.primary,
+    color: Colors.textMain,
   },
   twoFactorInputBox: {
     backgroundColor: Colors.surface,
@@ -2466,83 +2856,73 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
     borderRadius: BorderRadius.md,
     height: 50,
-    fontSize: 22,
+    fontSize: Typography.sizes.xl,
     fontWeight: Typography.weights.bold,
-    letterSpacing: 8,
-    color: Colors.textTitle,
+    color: Colors.primary,
     textAlign: 'center',
-    marginTop: Spacing.xs,
+    letterSpacing: 6,
   },
-  backupCodesWrap: {
+  secretKeyBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  secretKeyText: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: Colors.primary,
+    flex: 1,
+    marginRight: Spacing.sm,
+  },
+  secretKeyHint: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  backupCodesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    marginVertical: Spacing.sm,
     justifyContent: 'center',
-    marginVertical: Spacing.md,
   },
-  backupCodeChip: {
-    backgroundColor: '#f1f5f9',
+  backupCodePill: {
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderColor: Colors.border,
     borderRadius: BorderRadius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    minWidth: '45%',
+    alignItems: 'center',
   },
   backupCodeText: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
     color: Colors.textTitle,
-    letterSpacing: 1,
   },
-  copyBackupBtn: {
+  copyBackupCodesBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#eff6ff',
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    paddingVertical: 10,
-    borderRadius: BorderRadius.md,
-    marginTop: Spacing.xs,
+    paddingVertical: 6,
+    marginVertical: Spacing.xs,
   },
-  copyBackupBtnText: {
-    fontSize: Typography.sizes.xs + 1,
-    fontWeight: Typography.weights.bold,
+  copyBackupCodesText: {
+    fontSize: Typography.sizes.xs,
     color: Colors.primary,
-  },
-  inputGroup: {
-    marginBottom: Spacing.md,
-  },
-  label: {
-    fontSize: Typography.sizes.xs + 1,
     fontWeight: Typography.weights.semiBold,
-    color: Colors.textTitle,
-    marginBottom: 6,
-  },
-  modalInput: {
-    backgroundColor: Colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: Colors.borderInput,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.sm + 2,
-    fontSize: Typography.sizes.sm,
-    color: Colors.textMain,
-  },
-  inputWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: Colors.borderInput,
-    borderRadius: BorderRadius.md,
-    paddingRight: Spacing.xs,
-  },
-  modalInputWithIcon: {
-    flex: 1,
-    padding: Spacing.sm + 2,
-    fontSize: Typography.sizes.sm,
-    color: Colors.textMain,
   },
   modalCancelBtn: {
     alignItems: 'center',
@@ -2596,220 +2976,12 @@ const styles = StyleSheet.create({
   },
   resendBtn: {
     alignItems: 'center',
-    marginTop: Spacing.sm,
+    marginTop: Spacing.md,
     paddingVertical: Spacing.xs,
   },
   resendBtnText: {
-    fontSize: Typography.sizes.xs + 1,
+    fontSize: Typography.sizes.xs,
     color: Colors.primary,
-    fontWeight: Typography.weights.bold,
-  },
-  bizStatusCardPending: {
-    backgroundColor: '#fffbeb',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: '#fef3c7',
-  },
-  bizStatusPendingTitle: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.bold,
-    color: '#92400e',
-    marginLeft: 6,
-  },
-  bizStatusPendingDesc: {
-    fontSize: Typography.sizes.xs,
-    color: '#b45309',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  bizStatusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  bizStatusActions: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  bizStatusBtnSecondary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    backgroundColor: '#fef3c7',
-    borderRadius: BorderRadius.md,
-  },
-  bizStatusBtnSecondaryText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-    color: '#92400e',
-  },
-  bizStatusBtnPrimary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.md,
-  },
-  bizStatusBtnPrimaryText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-    color: Colors.white,
-  },
-  bizStatusCardRejected: {
-    backgroundColor: '#fef2f2',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: '#fee2e2',
-  },
-  bizStatusRejectedTitle: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.bold,
-    color: '#991b1b',
-    marginLeft: 6,
-  },
-  bizStatusRejectedDesc: {
-    fontSize: Typography.sizes.xs,
-    color: '#b91c1c',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  bizStatusBtnSecondaryRed: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    backgroundColor: '#fee2e2',
-    borderRadius: BorderRadius.md,
-  },
-  bizStatusBtnSecondaryRedText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-    color: '#991b1b',
-  },
-  bizStatusBtnDanger: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    backgroundColor: '#dc2626',
-    borderRadius: BorderRadius.md,
-  },
-  bizCtaCard: {
-    backgroundColor: '#f0f9ff',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: '#bae6fd',
-  },
-  bizCtaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(2, 132, 199, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginBottom: 6,
-  },
-  bizCtaBadgeText: {
-    fontSize: 10,
-    fontWeight: Typography.weights.bold,
-    color: '#0284c7',
-    letterSpacing: 0.5,
-  },
-  bizCtaTitle: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.bold,
-    color: '#0369a1',
-  },
-  bizCtaDesc: {
-    fontSize: Typography.sizes.xs,
-    color: '#0c4a6e',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  bizCtaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: Colors.primary,
-    paddingVertical: 11,
-    borderRadius: BorderRadius.md,
-    marginTop: 12,
-  },
-  bizCtaButtonText: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.white,
-    fontWeight: Typography.weights.bold,
-  },
-  bizManagedCard: {
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  bizManagedIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 158, 227, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bizManagedName: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.bold,
-    color: Colors.textTitle,
-  },
-  bizManagedSub: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  bizManagedBtnPanel: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: Colors.primary,
-    paddingVertical: 9,
-    borderRadius: BorderRadius.md,
-  },
-  bizManagedBtnPanelText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-    color: Colors.white,
-  },
-  bizManagedBtnAdd: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0, 158, 227, 0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 158, 227, 0.2)',
-  },
-  bizManagedBtnAddText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-    color: Colors.primary,
+    fontWeight: Typography.weights.semiBold,
   },
 });
