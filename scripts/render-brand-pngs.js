@@ -62,3 +62,4 @@ fs.copyFileSync(targetMobileWhite, targetWebWhite);
 fs.copyFileSync(targetMobileColor, targetWebColor);
 
 console.log('Successfully generated new brand PNGs for mobile and web!');
+
