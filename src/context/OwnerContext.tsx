@@ -30,11 +30,11 @@ export const OwnerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeRoleMode, setActiveRoleModeState] = useState<'owner' | 'client'>('owner');
 
   const roleLower = (user?.role || '').toLowerCase();
-  const isActualOwner = roleLower === 'owner' || user?.role === 'BUSINESS_OWNER';
+  const isActualOwner = roleLower === 'owner' || user?.role === 'BUSINESS_OWNER' || businesses.length > 0;
   const isAdmin = roleLower === 'administrator' || roleLower === 'admin';
 
   // Determine if owner view should be active
-  const isOwnerMode = isActualOwner || (isAdmin && activeRoleMode === 'owner');
+  const isOwnerMode = isAdmin ? activeRoleMode === 'owner' : isActualOwner;
 
   // Load saved role mode for admin
   useEffect(() => {
@@ -80,7 +80,7 @@ export const OwnerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const refreshBusinesses = useCallback(async () => {
-    if (!isOwnerMode) {
+    if (!user) {
       setBusinesses([]);
       setSelectedBusinessState(null);
       return;
@@ -109,16 +109,16 @@ export const OwnerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } finally {
       setLoading(false);
     }
-  }, [isOwnerMode]);
+  }, [user]);
 
   useEffect(() => {
-    if (isOwnerMode && user) {
+    if (user) {
       refreshBusinesses();
     } else {
       setBusinesses([]);
       setSelectedBusinessState(null);
     }
-  }, [isOwnerMode, user, refreshBusinesses]);
+  }, [user, refreshBusinesses]);
 
   return (
     <OwnerContext.Provider

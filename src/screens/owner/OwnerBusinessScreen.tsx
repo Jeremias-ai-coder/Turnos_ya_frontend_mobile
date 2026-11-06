@@ -20,6 +20,10 @@ import { Review } from '../../types';
 import { useOwner } from '../../context/OwnerContext';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/RootNavigator';
+import { BusinessDossierModal } from '../../components/business/BusinessDossierModal';
 
 const CATEGORY_CHOICES = [
   'Peluquería',
@@ -34,6 +38,8 @@ const CATEGORY_CHOICES = [
 export const OwnerBusinessScreen: React.FC = () => {
   const { selectedBusiness, businesses, setSelectedBusiness, refreshBusinesses, isAdmin, activeRoleMode, toggleRoleMode } = useOwner();
   const { user, logout } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [dossierModalVisible, setDossierModalVisible] = useState(false);
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsStats, setReviewsStats] = useState<{ average: number; count: number }>({ average: 0, count: 0 });
@@ -177,26 +183,116 @@ export const OwnerBusinessScreen: React.FC = () => {
             </View>
           )}
 
+          {/* Status Banner: Pendiente de Aprobación */}
+          {selectedBusiness?.status === 'pending_approval' && (
+            <View style={styles.pendingCard}>
+              <View style={styles.bannerHeaderRow}>
+                <Ionicons name="time" size={20} color="#b45309" />
+                <Text style={styles.pendingTitle}>En Proceso de Verificación</Text>
+              </View>
+              <Text style={styles.pendingDesc}>
+                Tu solicitud está siendo revisada por el equipo de administración. Mientras tanto, tu negocio no será visible públicamente en el catálogo general.
+              </Text>
+              <View style={styles.bannerButtonsRow}>
+                <TouchableOpacity
+                  style={styles.bannerBtnSecondary}
+                  onPress={() => setDossierModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="eye-outline" size={15} color="#92400e" />
+                  <Text style={styles.bannerBtnSecondaryText}>Ver Ficha Enviada</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.bannerBtnPrimary}
+                  onPress={() => navigation.navigate('RegisterBusiness', { business: selectedBusiness })}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="pencil" size={15} color={Colors.white} />
+                  <Text style={styles.bannerBtnPrimaryText}>Editar Datos</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Status Banner: Solicitud Observada / Rechazada */}
+          {selectedBusiness?.status === 'rejected' && (
+            <View style={styles.rejectedCard}>
+              <View style={styles.bannerHeaderRow}>
+                <Ionicons name="alert-circle" size={20} color="#b91c1c" />
+                <Text style={styles.rejectedTitle}>Solicitud Observada</Text>
+              </View>
+              <Text style={styles.rejectedDesc}>
+                {selectedBusiness.rejectionReason || 'El equipo de administración ha solicitado correcciones o evidencias adicionales para dar de alta el comercio.'}
+              </Text>
+              <View style={styles.bannerButtonsRow}>
+                <TouchableOpacity
+                  style={styles.bannerBtnSecondaryRed}
+                  onPress={() => setDossierModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="eye-outline" size={15} color="#991b1b" />
+                  <Text style={styles.bannerBtnSecondaryRedText}>Ver Observaciones</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.bannerBtnDanger}
+                  onPress={() => navigation.navigate('RegisterBusiness', { business: selectedBusiness })}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="refresh" size={15} color={Colors.white} />
+                  <Text style={styles.bannerBtnPrimaryText}>Corregir y Reenviar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           {/* Business Info Card */}
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.bizName}>{selectedBusiness?.name || 'Mi Negocio'}</Text>
-                <View style={styles.categoryPill}>
-                  <Text style={styles.categoryPillText}>
-                    {selectedBusiness?.category || 'Comercio'}
-                  </Text>
+                <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                  <View style={styles.categoryPill}>
+                    <Text style={styles.categoryPillText}>
+                      {selectedBusiness?.category || 'Comercio'}
+                    </Text>
+                  </View>
+                  {selectedBusiness?.status === 'pending_approval' && (
+                    <View style={styles.statusPillPending}>
+                      <Text style={styles.statusPillPendingText}>⏳ En Revisión</Text>
+                    </View>
+                  )}
+                  {selectedBusiness?.status === 'approved' && (
+                    <View style={styles.statusPillApproved}>
+                      <Text style={styles.statusPillApprovedText}>✓ Activo</Text>
+                    </View>
+                  )}
+                  {selectedBusiness?.status === 'rejected' && (
+                    <View style={styles.statusPillRejected}>
+                      <Text style={styles.statusPillRejectedText}>✕ Observado</Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
-              <TouchableOpacity
-                style={styles.editBtn}
-                onPress={handleOpenEditModal}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="pencil" size={15} color={Colors.primary} />
-                <Text style={styles.editBtnText}>Editar</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  style={styles.viewDossierBtn}
+                  onPress={() => setDossierModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="eye-outline" size={15} color={Colors.primary} />
+                  <Text style={styles.viewDossierBtnText}>Ficha</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.editBtn}
+                  onPress={handleOpenEditModal}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="pencil" size={15} color={Colors.primary} />
+                  <Text style={styles.editBtnText}>Editar</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {selectedBusiness?.description ? (
@@ -258,6 +354,22 @@ export const OwnerBusinessScreen: React.FC = () => {
               })}
             </View>
           )}
+
+          {/* Register Another Business CTA */}
+          <TouchableOpacity
+            style={styles.registerNewBizCard}
+            onPress={() => navigation.navigate('RegisterBusiness')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.registerNewBizIconWrap}>
+              <Ionicons name="add" size={20} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.registerNewBizTitle}>¿Tenés otra sucursal o comercio?</Text>
+              <Text style={styles.registerNewBizSubtitle}>Registrá un nuevo negocio para administrarlo desde acá</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
+          </TouchableOpacity>
 
           {/* Customer Reviews & Ratings */}
           <View style={styles.card}>
@@ -433,6 +545,17 @@ export const OwnerBusinessScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Business Dossier Modal */}
+      <BusinessDossierModal
+        visible={dossierModalVisible}
+        business={selectedBusiness}
+        onClose={() => setDossierModalVisible(false)}
+        onEdit={() => {
+          setDossierModalVisible(false);
+          navigation.navigate('RegisterBusiness', { business: selectedBusiness });
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -861,5 +984,187 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     color: Colors.white,
     fontWeight: Typography.weights.bold,
+  },
+  pendingCard: {
+    backgroundColor: '#fffbeb',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#fef3c7',
+  },
+  pendingTitle: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.bold,
+    color: '#92400e',
+    marginLeft: Spacing.xs,
+  },
+  pendingDesc: {
+    fontSize: Typography.sizes.xs,
+    color: '#b45309',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  rejectedCard: {
+    backgroundColor: '#fef2f2',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#fee2e2',
+  },
+  rejectedTitle: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.bold,
+    color: '#991b1b',
+    marginLeft: Spacing.xs,
+  },
+  rejectedDesc: {
+    fontSize: Typography.sizes.xs,
+    color: '#b91c1c',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  bannerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bannerButtonsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  bannerBtnSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: '#fef3c7',
+    borderRadius: BorderRadius.md,
+  },
+  bannerBtnSecondaryText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: '#92400e',
+  },
+  bannerBtnSecondaryRed: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: '#fee2e2',
+    borderRadius: BorderRadius.md,
+  },
+  bannerBtnSecondaryRedText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: '#991b1b',
+  },
+  bannerBtnPrimary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+  },
+  bannerBtnPrimaryText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: Colors.white,
+  },
+  bannerBtnDanger: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: '#dc2626',
+    borderRadius: BorderRadius.md,
+  },
+  statusPillPending: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  statusPillPendingText: {
+    fontSize: 11,
+    fontWeight: Typography.weights.bold,
+    color: '#92400e',
+  },
+  statusPillApproved: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  statusPillApprovedText: {
+    fontSize: 11,
+    fontWeight: Typography.weights.bold,
+    color: '#15803d',
+  },
+  statusPillRejected: {
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  statusPillRejectedText: {
+    fontSize: 11,
+    fontWeight: Typography.weights.bold,
+    color: '#b91c1c',
+  },
+  viewDossierBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0, 158, 227, 0.08)',
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 158, 227, 0.2)',
+    gap: 4,
+  },
+  viewDossierBtnText: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.primary,
+    fontWeight: Typography.weights.bold,
+  },
+  registerNewBizCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderStyle: 'dashed',
+  },
+  registerNewBizIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0, 158, 227, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  registerNewBizTitle: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textTitle,
+  },
+  registerNewBizSubtitle: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
 });

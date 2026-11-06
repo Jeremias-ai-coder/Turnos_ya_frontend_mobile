@@ -18,6 +18,7 @@ import { OwnerAgendaScreen } from '../screens/owner/OwnerAgendaScreen';
 import { OwnerServicesScreen } from '../screens/owner/OwnerServicesScreen';
 import { OwnerSchedulesScreen } from '../screens/owner/OwnerSchedulesScreen';
 import { OwnerBusinessScreen } from '../screens/owner/OwnerBusinessScreen';
+import { RegisterBusinessScreen } from '../screens/owner/RegisterBusinessScreen';
 
 import { useOwner } from '../context/OwnerContext';
 import { Colors, Typography } from '../constants/theme';
@@ -32,6 +33,7 @@ export type RootStackParamList = {
     businessAddress?: string;
     preselectedServiceId?: number;
   };
+  RegisterBusiness: { business?: any } | undefined;
   Login: undefined;
   Register: undefined;
 };
@@ -219,6 +221,7 @@ export const RootNavigator = () => {
         )}
         <Stack.Screen name="BusinessDetail" component={BusinessDetailScreen} />
         <Stack.Screen name="BookingWizard" component={BookingWizardScreen} />
+        <Stack.Screen name="RegisterBusiness" component={RegisterBusinessScreen} />
         <Stack.Screen
           name="Login"
           component={LoginScreen}

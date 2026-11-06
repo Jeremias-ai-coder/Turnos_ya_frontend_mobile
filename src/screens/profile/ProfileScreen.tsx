@@ -22,6 +22,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { BugReportModal } from '../../components/common/BugReportModal';
+import { BusinessDossierModal } from '../../components/business/BusinessDossierModal';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useOwner } from '../../context/OwnerContext';
@@ -44,7 +45,8 @@ interface UserSessionItem {
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { user, logout, updateUser } = useAuth();
-  const { isAdmin, setRoleMode } = useOwner();
+  const { isAdmin, setRoleMode, businesses, selectedBusiness } = useOwner();
+  const [dossierVisible, setDossierVisible] = useState(false);
 
   // Preferencias de Notificaciones
   const [emailNotifs, setEmailNotifs] = useState(user?.emailNotifications ?? true);
@@ -616,6 +618,119 @@ export const ProfileScreen: React.FC = () => {
               <Ionicons name="storefront" size={15} color={Colors.white} />
               <Text style={styles.adminBannerBtnText}>Panel Dueño</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Business Status & Onboarding Section */}
+        {user && (
+          <View style={styles.sectionWrap}>
+            {selectedBusiness?.status === 'pending_approval' ? (
+              <View style={styles.bizStatusCardPending}>
+                <View style={styles.bizStatusHeader}>
+                  <Ionicons name="time" size={20} color="#b45309" />
+                  <Text style={styles.bizStatusPendingTitle}>Negocio en Proceso de Verificación</Text>
+                </View>
+                <Text style={styles.bizStatusPendingDesc}>
+                  Tu local "{selectedBusiness.name}" está en revisión por administración. Cuando sea confirmado, aparecerá activo en la plataforma.
+                </Text>
+                <View style={styles.bizStatusActions}>
+                  <TouchableOpacity
+                    style={styles.bizStatusBtnSecondary}
+                    onPress={() => setDossierVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="eye-outline" size={15} color="#92400e" />
+                    <Text style={styles.bizStatusBtnSecondaryText}>Ver Ficha Enviada</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.bizStatusBtnPrimary}
+                    onPress={() => navigation.navigate('RegisterBusiness', { business: selectedBusiness })}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="pencil" size={15} color={Colors.white} />
+                    <Text style={styles.bizStatusBtnPrimaryText}>Editar Datos</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : selectedBusiness?.status === 'rejected' ? (
+              <View style={styles.bizStatusCardRejected}>
+                <View style={styles.bizStatusHeader}>
+                  <Ionicons name="alert-circle" size={20} color="#b91c1c" />
+                  <Text style={styles.bizStatusRejectedTitle}>Solicitud de Negocio Observada</Text>
+                </View>
+                <Text style={styles.bizStatusRejectedDesc}>
+                  {selectedBusiness.rejectionReason || 'El equipo administrativo solicitó correcciones antes de aprobar tu comercio.'}
+                </Text>
+                <View style={styles.bizStatusActions}>
+                  <TouchableOpacity
+                    style={styles.bizStatusBtnSecondaryRed}
+                    onPress={() => setDossierVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="eye-outline" size={15} color="#991b1b" />
+                    <Text style={styles.bizStatusBtnSecondaryRedText}>Ver Observaciones</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.bizStatusBtnDanger}
+                    onPress={() => navigation.navigate('RegisterBusiness', { business: selectedBusiness })}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="refresh" size={15} color={Colors.white} />
+                    <Text style={styles.bizStatusBtnPrimaryText}>Corregir Solicitud</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : businesses.length === 0 ? (
+              <View style={styles.bizCtaCard}>
+                <View style={styles.bizCtaBadge}>
+                  <Ionicons name="sparkles" size={12} color="#0284c7" />
+                  <Text style={styles.bizCtaBadgeText}>COMERCIOS & SERVICIOS</Text>
+                </View>
+                <Text style={styles.bizCtaTitle}>¿Tenés un negocio o brindás servicios?</Text>
+                <Text style={styles.bizCtaDesc}>
+                  Registrá tu local en Turnos Ya para recibir reservas online 24/7, gestionar tu agenda y profesionalizar la atención de tus clientes.
+                </Text>
+                <TouchableOpacity
+                  style={styles.bizCtaButton}
+                  onPress={() => navigation.navigate('RegisterBusiness')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="storefront" size={16} color={Colors.white} />
+                  <Text style={styles.bizCtaButtonText}>Registrar mi Negocio</Text>
+                  <Ionicons name="arrow-forward" size={16} color={Colors.white} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.bizManagedCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={styles.bizManagedIconWrap}>
+                    <Ionicons name="storefront" size={20} color={Colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.bizManagedName}>{selectedBusiness?.name || 'Mi Comercio'}</Text>
+                    <Text style={styles.bizManagedSub}>Panel de administración de turnos y servicios</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                  <TouchableOpacity
+                    style={styles.bizManagedBtnPanel}
+                    onPress={() => setRoleMode('owner')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="grid-outline" size={15} color={Colors.white} />
+                    <Text style={styles.bizManagedBtnPanelText}>Ir al Panel Dueño</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.bizManagedBtnAdd}
+                    onPress={() => navigation.navigate('RegisterBusiness')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="add" size={16} color={Colors.primary} />
+                    <Text style={styles.bizManagedBtnAddText}>Nueva Sucursal</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
         )}
 
@@ -2163,5 +2278,213 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.xs + 1,
     color: Colors.primary,
     fontWeight: Typography.weights.bold,
+  },
+  bizStatusCardPending: {
+    backgroundColor: '#fffbeb',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#fef3c7',
+  },
+  bizStatusPendingTitle: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.bold,
+    color: '#92400e',
+    marginLeft: 6,
+  },
+  bizStatusPendingDesc: {
+    fontSize: Typography.sizes.xs,
+    color: '#b45309',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  bizStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bizStatusActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  bizStatusBtnSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: '#fef3c7',
+    borderRadius: BorderRadius.md,
+  },
+  bizStatusBtnSecondaryText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: '#92400e',
+  },
+  bizStatusBtnPrimary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+  },
+  bizStatusBtnPrimaryText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: Colors.white,
+  },
+  bizStatusCardRejected: {
+    backgroundColor: '#fef2f2',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#fee2e2',
+  },
+  bizStatusRejectedTitle: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.bold,
+    color: '#991b1b',
+    marginLeft: 6,
+  },
+  bizStatusRejectedDesc: {
+    fontSize: Typography.sizes.xs,
+    color: '#b91c1c',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  bizStatusBtnSecondaryRed: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: '#fee2e2',
+    borderRadius: BorderRadius.md,
+  },
+  bizStatusBtnSecondaryRedText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: '#991b1b',
+  },
+  bizStatusBtnDanger: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    backgroundColor: '#dc2626',
+    borderRadius: BorderRadius.md,
+  },
+  bizCtaCard: {
+    backgroundColor: '#f0f9ff',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  bizCtaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(2, 132, 199, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  bizCtaBadgeText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    color: '#0284c7',
+    letterSpacing: 0.5,
+  },
+  bizCtaTitle: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.bold,
+    color: '#0369a1',
+  },
+  bizCtaDesc: {
+    fontSize: Typography.sizes.xs,
+    color: '#0c4a6e',
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  bizCtaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingVertical: 11,
+    borderRadius: BorderRadius.md,
+    marginTop: 12,
+  },
+  bizCtaButtonText: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.white,
+    fontWeight: Typography.weights.bold,
+  },
+  bizManagedCard: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  bizManagedIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 158, 227, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bizManagedName: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textTitle,
+  },
+  bizManagedSub: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  bizManagedBtnPanel: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.primary,
+    paddingVertical: 9,
+    borderRadius: BorderRadius.md,
+  },
+  bizManagedBtnPanelText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: Colors.white,
+  },
+  bizManagedBtnAdd: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 158, 227, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 158, 227, 0.2)',
+  },
+  bizManagedBtnAddText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: Colors.primary,
   },
 });
