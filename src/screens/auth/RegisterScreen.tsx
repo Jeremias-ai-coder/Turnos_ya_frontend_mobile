@@ -1,3 +1,4 @@
+import { BrandLogo } from '../../components/common/BrandLogo';
 import React, { useState } from 'react';
 import {
   View,
@@ -88,11 +89,7 @@ export const RegisterScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brandContainer}>
-            <Image
-              source={require('../../../assets/brand/logo-color.png')}
-              style={styles.brandLogo}
-              resizeMode="contain"
-            />
+            <BrandLogo variant="color" size="lg" style={{ marginBottom: 16 }} />
             <Text style={styles.welcomeTitle}>Unite a Turnos Ya</Text>
             <Text style={styles.welcomeSubtitle}>
               Reservá en tus lugares favoritos y organizá tu agenda sin demoras

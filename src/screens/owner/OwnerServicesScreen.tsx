@@ -1,3 +1,4 @@
+import { BrandLogo } from '../../components/common/BrandLogo';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -159,11 +160,7 @@ export const OwnerServicesScreen: React.FC = () => {
         {/* Header Hero */}
         <View style={styles.headerHero}>
           <View style={styles.headerTopRow}>
-            <Image
-              source={require('../../../assets/brand/logo-white.png')}
-              style={styles.brandLogo}
-              resizeMode="contain"
-            />
+            <BrandLogo variant="white" size="md" />
             <View style={styles.bizBadge}>
               <Ionicons name="business" size={13} color={Colors.white} />
               <Text style={styles.bizBadgeText} numberOfLines={1}>

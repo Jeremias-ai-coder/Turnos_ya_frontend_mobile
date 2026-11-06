@@ -1,3 +1,4 @@
+import { BrandLogo } from '../../components/common/BrandLogo';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
@@ -183,11 +184,7 @@ export const OwnerAgendaScreen: React.FC = () => {
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <StatusBar barStyle="light-content" />
         <View style={styles.headerHero}>
-          <Image
-            source={require('../../../assets/brand/logo-white.png')}
-            style={styles.brandLogo}
-            resizeMode="contain"
-          />
+          <BrandLogo variant="white" size="md" />
           <Text style={styles.headerSubtitle}>Panel de Dueño</Text>
         </View>
         <View style={styles.emptyContainer}>
