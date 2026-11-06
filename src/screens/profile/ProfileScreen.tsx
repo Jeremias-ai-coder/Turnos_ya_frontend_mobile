@@ -23,6 +23,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { BugReportModal } from '../../components/common/BugReportModal';
+import { LegalModal, type LegalDocType } from '../../components/common/LegalModal';
 import { BusinessDossierModal } from '../../components/business/BusinessDossierModal';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
@@ -63,6 +64,7 @@ export const ProfileScreen: React.FC = () => {
   // Modales adicionales
   const [dossierVisible, setDossierVisible] = useState(false);
   const [showBugModal, setShowBugModal] = useState(false);
+  const [legalModalDoc, setLegalModalDoc] = useState<LegalDocType | null>(null);
 
   // Preferencias de Notificaciones
   const [emailNotifs, setEmailNotifs] = useState(user?.emailNotifications ?? true);
@@ -1073,30 +1075,51 @@ export const ProfileScreen: React.FC = () => {
       <View style={styles.groupedList}>
         <TouchableOpacity
           style={styles.groupedRow}
-          onPress={() => Alert.alert('Términos y Condiciones', 'Consultá la versión completa de Términos y Condiciones en la web oficial.')}
+          onPress={() => setLegalModalDoc('terms')}
           activeOpacity={0.7}
         >
-          <Ionicons name="document-text-outline" size={20} color={Colors.primary} style={{ marginRight: 12 }} />
+          <View style={[styles.groupedRowIconWrap, { backgroundColor: Colors.primaryLight }]}>
+            <Ionicons name="document-text-outline" size={20} color={Colors.primary} />
+          </View>
           <View style={styles.groupedRowBody}>
             <Text style={styles.groupedRowTitle}>Términos y Condiciones Generales</Text>
-            <Text style={styles.groupedRowSubtitle}>Políticas de uso del servicio</Text>
+            <Text style={styles.groupedRowSubtitle}>Políticas y condiciones de uso del servicio</Text>
           </View>
-          <Ionicons name="open-outline" size={16} color={Colors.textDisabled} />
+          <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
         </TouchableOpacity>
 
         <View style={styles.groupedDivider} />
 
         <TouchableOpacity
           style={styles.groupedRow}
-          onPress={() => Alert.alert('Privacidad', 'Turnos Ya cumple estrictamente con la Ley 25.326 de Protección de Datos Personales de la República Argentina.')}
+          onPress={() => setLegalModalDoc('privacy')}
           activeOpacity={0.7}
         >
-          <Ionicons name="shield-outline" size={20} color={Colors.primary} style={{ marginRight: 12 }} />
+          <View style={[styles.groupedRowIconWrap, { backgroundColor: '#ecfdf5' }]}>
+            <Ionicons name="shield-checkmark-outline" size={20} color="#059669" />
+          </View>
           <View style={styles.groupedRowBody}>
-            <Text style={styles.groupedRowTitle}>Política de Privacidad y Cookies</Text>
+            <Text style={styles.groupedRowTitle}>Política de Privacidad (Ley 25.326)</Text>
             <Text style={styles.groupedRowSubtitle}>Tratamiento confidencial de tus datos</Text>
           </View>
-          <Ionicons name="open-outline" size={16} color={Colors.textDisabled} />
+          <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+        </TouchableOpacity>
+
+        <View style={styles.groupedDivider} />
+
+        <TouchableOpacity
+          style={styles.groupedRow}
+          onPress={() => setLegalModalDoc('cookies')}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.groupedRowIconWrap, { backgroundColor: '#fffbeb' }]}>
+            <Ionicons name="cube-outline" size={20} color="#d97706" />
+          </View>
+          <View style={styles.groupedRowBody}>
+            <Text style={styles.groupedRowTitle}>Preferencias de Cookies y Datos Locales</Text>
+            <Text style={styles.groupedRowSubtitle}>Almacenamiento seguro en tu dispositivo</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -2173,6 +2196,15 @@ export const ProfileScreen: React.FC = () => {
       <BugReportModal
         visible={showBugModal}
         onClose={() => setShowBugModal(false)}
+      />
+
+      {/* ============================================================== */}
+      {/* MODAL LEGAL: TÉRMINOS, PRIVACIDAD (LEY 25.326) Y COOKIES        */}
+      {/* ============================================================== */}
+      <LegalModal
+        visible={Boolean(legalModalDoc)}
+        initialDoc={legalModalDoc || 'terms'}
+        onClose={() => setLegalModalDoc(null)}
       />
     </SafeAreaView>
   );

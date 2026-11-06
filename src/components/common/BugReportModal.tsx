@@ -94,10 +94,10 @@ export const BugReportModal: React.FC<BugReportModalProps> = ({ visible, onClose
               <View style={styles.headerIcon}>
                 <Ionicons name="bug" size={20} color="#dc2626" />
               </View>
-              <div>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.headerTitle}>Reportar un Inconveniente</Text>
                 <Text style={styles.headerSubtitle}>Ayudanos a mantener Turnos Ya impecable</Text>
-              </div>
+              </View>
             </View>
             <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
               <Ionicons name="close" size={22} color={Colors.textSecondary} />
