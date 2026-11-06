@@ -17,6 +17,29 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// ==========================================
+// Bus de eventos para sincronización inmediata in-app (0ms de latencia)
+// ==========================================
+type NotificationSyncListener = () => void;
+const syncListeners: Set<NotificationSyncListener> = new Set();
+
+export function subscribeToNotificationSync(listener: NotificationSyncListener): () => void {
+  syncListeners.add(listener);
+  return () => {
+    syncListeners.delete(listener);
+  };
+}
+
+export function triggerNotificationSync(): void {
+  syncListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (err) {
+      console.warn('[Notifications] Error en listener de sincronización:', err);
+    }
+  });
+}
+
 export interface InAppNotification {
   id: number;
   userId: number;

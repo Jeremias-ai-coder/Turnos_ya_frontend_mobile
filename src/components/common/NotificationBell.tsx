@@ -6,10 +6,14 @@ import {
   StyleSheet,
   StyleProp,
   ViewStyle,
+  AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NotificationModal } from './NotificationModal';
-import { fetchInAppNotifications } from '../../services/notificationService';
+import {
+  fetchInAppNotifications,
+  subscribeToNotificationSync,
+} from '../../services/notificationService';
 import { useAuth } from '../../context/AuthContext';
 import { Colors, Typography, BorderRadius } from '../../constants/theme';
 
@@ -39,9 +43,27 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
   useEffect(() => {
     checkUnread();
-    // Polling ligero cada 45 segundos para mantener actualizado el contador
-    const interval = setInterval(checkUnread, 45000);
-    return () => clearInterval(interval);
+
+    // 1. Sincronización instantánea in-app (0ms de latencia ante reservas o cancelaciones)
+    const unsubscribe = subscribeToNotificationSync(() => {
+      checkUnread();
+    });
+
+    // 2. Polling ágil de respaldo cada 12 segundos (reemplaza los 45s anteriores)
+    const interval = setInterval(checkUnread, 12000);
+
+    // 3. Sincronizar inmediatamente cuando la app vuelve al primer plano
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        checkUnread();
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+      appStateSub.remove();
+    };
   }, [user]);
 
   return (

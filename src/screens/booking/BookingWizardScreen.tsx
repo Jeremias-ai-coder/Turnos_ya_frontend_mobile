@@ -28,7 +28,10 @@ import { SlotPill } from '../../components/common/SlotPill';
 import { AuthRequiredModal } from '../../components/common/AuthRequiredModal';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
-import { scheduleAppointmentReminders } from '../../services/notificationService';
+import {
+  scheduleAppointmentReminders,
+  triggerNotificationSync,
+} from '../../services/notificationService';
 import {
   formatTimeToHHMM,
   toISOTimeString,
@@ -320,6 +323,9 @@ export const BookingWizardScreen: React.FC = () => {
         dateStr,
         timeStr: selectedTime,
       });
+
+      // Disparar sincronización inmediata de la campanita in-app (0ms de demora)
+      triggerNotificationSync();
 
       setConfirmedSuccess(true);
     } catch (err: any) {
