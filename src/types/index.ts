@@ -1,13 +1,17 @@
+export type UserRole = 'client' | 'owner' | 'administrator' | 'USER' | 'BUSINESS_OWNER' | 'ADMIN' | string;
+
 export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'USER' | 'BUSINESS_OWNER' | 'ADMIN' | string;
-  phone?: string;
+  role: UserRole;
+  phone?: string | null;
   emailVerified?: boolean;
   twoFactorEnabled?: boolean;
   emailNotifications?: boolean;
   whatsappNotifications?: boolean;
+  createdAt?: string | null;
+  deletedAt?: string | null;
 }
 
 export interface BusinessService {
@@ -19,11 +23,16 @@ export interface BusinessService {
   durationMinutes?: number;
 }
 
+export type BusinessStatus = 'pending_approval' | 'approved' | 'rejected' | 'suspended';
+
 export interface Business {
   id: number;
   name: string;
   address: string;
+  city?: string;
+  province?: string;
   phone: string;
+  email?: string;
   category: string;
   categoryId?: number;
   description?: string;
@@ -31,9 +40,32 @@ export interface Business {
   reviewCount?: number;
   services?: BusinessService[];
   imageUrl?: string;
+  logoUrl?: string;
   latitude?: number | string | null;
   longitude?: number | string | null;
   distanceKm?: number;
+  ownerId?: number;
+  owner?: {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+  };
+
+  // Evidencias de veracidad y redes sociales
+  instagramUrl?: string;
+  facebookUrl?: string;
+  websiteUrl?: string;
+  googleMapsUrl?: string;
+  cuit?: string;
+
+  // Estado y auditoría
+  status?: BusinessStatus;
+  rejectionReason?: string | null;
+  reviewedAt?: string | null;
+  reviewedById?: number | null;
+  createdAt?: string;
+  schedules?: Schedule[];
 }
 
 export interface Schedule {
@@ -55,18 +87,9 @@ export interface Appointment {
   time: string;
   status: AppointmentStatus;
   notes?: string;
-  user?: {
-    id: number;
-    name: string;
-    email: string;
-    phone?: string;
-  };
-  client?: {
-    id: number;
-    name: string;
-    email: string;
-    phone?: string;
-  };
+  holdToken?: string | null;
+  cancelledReason?: string | null;
+  cancelledByUserId?: string | null;
   business?: {
     id: number;
     name: string;
@@ -78,18 +101,36 @@ export interface Appointment {
     name: string;
     price?: number;
     durationMinutes?: number;
+    minCancellationNoticeHours?: number;
   };
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string | null;
+  };
+  client?: {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string | null;
+  };
+  review?: Review | null;
 }
 
 export interface Review {
   id: number;
-  userId: number;
-  businessId: number;
+  userId?: number;
+  businessId?: number;
   rating: number;
-  comment?: string;
+  comment?: string | null;
   createdAt: string;
   user?: {
     name: string;
+  };
+  appointment?: {
+    user?: { id?: number; name: string };
+    service?: { id?: number; name: string };
   };
 }
 
