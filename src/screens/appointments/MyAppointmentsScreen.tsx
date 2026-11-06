@@ -20,6 +20,7 @@ import { Appointment } from '../../types';
 import { Card } from '../../components/common/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Button } from '../../components/common/Button';
+import { NotificationBell } from '../../components/common/NotificationBell';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { formatTimeToHHMM } from '../../utils/timeHelper';
@@ -150,6 +151,7 @@ export const MyAppointmentsScreen: React.FC = () => {
       {/* Top Navbar */}
       <View style={styles.navBar}>
         <Text style={styles.navTitle}>Mis Turnos</Text>
+        <NotificationBell color={Colors.textTitle} size={22} />
       </View>
 
       {/* Tabs */}
@@ -353,6 +355,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   navTitle: {
     fontSize: Typography.sizes.xl,

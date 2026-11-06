@@ -28,6 +28,7 @@ import { SlotPill } from '../../components/common/SlotPill';
 import { AuthRequiredModal } from '../../components/common/AuthRequiredModal';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
+import { scheduleAppointmentReminders } from '../../services/notificationService';
 import {
   formatTimeToHHMM,
   toISOTimeString,
@@ -302,13 +303,22 @@ export const BookingWizardScreen: React.FC = () => {
     setSubmitting(true);
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      await api.post('/appointments', {
+      const createRes = await api.post('/appointments', {
         businessId: Number(businessId),
         serviceId: selectedService.id,
         date: `${dateStr}T00:00:00.000Z`,
         time: toISOTimeString(selectedTime),
         holdToken,
         notes,
+      });
+
+      // Programar recordatorio en el sistema operativo (1 hora y 24 horas antes)
+      scheduleAppointmentReminders({
+        appointmentId: createRes.data?.data?.id || createRes.data?.id,
+        serviceName: selectedService.name,
+        businessName: businessName || 'el comercio',
+        dateStr,
+        timeStr: selectedTime,
       });
 
       setConfirmedSuccess(true);
