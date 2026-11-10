@@ -314,7 +314,8 @@ export const ProfileScreen: React.FC = () => {
   };
 
   // Flujo 2FA (Google Authenticator)
-  const handleOpenTwoFactorModal = async (forceReset: boolean = false) => {
+  const handleOpenTwoFactorModal = async (forceReset?: boolean | any) => {
+    const shouldReset = forceReset === true;
     setTwoFactorError(null);
     setTwoFactorCodeInput('');
     setTwoFactorDisablePassword('');
@@ -328,7 +329,7 @@ export const ProfileScreen: React.FC = () => {
       setShowTwoFactorModal(true);
       setTwoFactorLoading(true);
       try {
-        const url = forceReset ? '/auth/2fa/setup?reset=true' : '/auth/2fa/setup';
+        const url = shouldReset ? '/auth/2fa/setup?reset=true' : '/auth/2fa/setup';
         const res = await api.get(url);
         setTwoFactorSecret(res.data.secret);
       } catch (err: any) {

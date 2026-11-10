@@ -170,40 +170,31 @@ export const RegisterBusinessScreen: React.FC = () => {
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Step Indicator */}
-        <View style={styles.stepsHeader}>
-          {[1, 2, 3, 4].map((s) => (
-            <View key={s} style={styles.stepIndicatorItem}>
+        {/* Progress Bar Fluida */}
+        <View style={styles.progressBarTrack}>
+          <View style={[styles.progressBarFill, { width: `${(step / 4) * 100}%` }]} />
+        </View>
+
+        {/* Step Indicator Header Moderno */}
+        <View style={styles.stepHeaderBar}>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepBadgeText}>PASO {step} DE 4</Text>
+          </View>
+          <Text style={styles.stepCurrentTitle}>
+            {step === 1 ? 'Identidad Comercial' : step === 2 ? 'Ubicación & Contacto' : step === 3 ? 'Evidencias Oficiales' : 'Ficha de Previsualización'}
+          </Text>
+          <View style={styles.stepDotsRow}>
+            {[1, 2, 3, 4].map((s) => (
               <View
+                key={s}
                 style={[
-                  styles.stepCircle,
-                  step === s && styles.stepCircleActive,
-                  step > s && styles.stepCircleCompleted,
+                  styles.stepDot,
+                  step === s && styles.stepDotActive,
+                  step > s && styles.stepDotCompleted,
                 ]}
-              >
-                {step > s ? (
-                  <Ionicons name="checkmark" size={14} color={Colors.white} />
-                ) : (
-                  <Text
-                    style={[
-                      styles.stepNumberText,
-                      step === s && styles.stepNumberTextActive,
-                    ]}
-                  >
-                    {s}
-                  </Text>
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.stepLabelText,
-                  step === s && styles.stepLabelTextActive,
-                ]}
-              >
-                {s === 1 ? 'Identidad' : s === 2 ? 'Ubicación' : s === 3 ? 'Evidencias' : 'Resumen'}
-              </Text>
-            </View>
-          ))}
+              />
+            ))}
+          </View>
         </View>
 
         <ScrollView
@@ -213,20 +204,30 @@ export const RegisterBusinessScreen: React.FC = () => {
           {/* PASO 1: IDENTIDAD */}
           {step === 1 && (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepHeading}>Identidad de tu Negocio</Text>
-              <Text style={styles.stepSubheading}>
-                Completá el nombre, la categoría principal y cómo presentás tu comercio ante los clientes.
-              </Text>
+              <View style={styles.stepHeaderGroup}>
+                <View style={styles.stepHeaderIconBox}>
+                  <Ionicons name="business" size={20} color={Colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepHeading}>Identidad de tu Negocio</Text>
+                  <Text style={styles.stepSubheading}>
+                    Completá el nombre, rubro oficial y cómo presentás tu comercio ante los clientes.
+                  </Text>
+                </View>
+              </View>
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Nombre Comercial *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ej: Barbería Premium, Estética Glow..."
-                  placeholderTextColor={Colors.textDisabled}
-                  value={name}
-                  onChangeText={setName}
-                />
+                <View style={styles.inputWithIcon}>
+                  <Ionicons name="business-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.inputInside}
+                    placeholder="Ej: Barbería Premium, Estética Glow..."
+                    placeholderTextColor={Colors.textDisabled}
+                    value={name}
+                    onChangeText={setName}
+                  />
+                </View>
               </View>
 
               <View style={styles.formGroup}>
@@ -246,7 +247,7 @@ export const RegisterBusinessScreen: React.FC = () => {
                       >
                         <Ionicons
                           name={cat.icon as any}
-                          size={18}
+                          size={16}
                           color={isSelected ? Colors.primary : Colors.textSecondary}
                         />
                         <Text
@@ -255,7 +256,7 @@ export const RegisterBusinessScreen: React.FC = () => {
                             isSelected && styles.categoryCardTextSelected,
                           ]}
                         >
-                          {cat.name}
+                          {isSelected ? `✓ ${cat.name}` : cat.name}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -265,25 +266,32 @@ export const RegisterBusinessScreen: React.FC = () => {
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Email Comercial</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="contacto@tunegocio.com"
-                  placeholderTextColor={Colors.textDisabled}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={setEmail}
-                />
+                <View style={styles.inputWithIcon}>
+                  <Ionicons name="mail-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.inputInside}
+                    placeholder="contacto@tunegocio.com"
+                    placeholderTextColor={Colors.textDisabled}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
+                  />
+                </View>
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Descripción de Servicios</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.label}>Descripción de Servicios</Text>
+                  <Text style={styles.charCountText}>{description.length}/500</Text>
+                </View>
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   placeholder="Describí los servicios principales, comodidades y especialidad de tu local..."
                   placeholderTextColor={Colors.textDisabled}
                   multiline
                   numberOfLines={4}
+                  maxLength={500}
                   value={description}
                   onChangeText={setDescription}
                 />
@@ -303,20 +311,30 @@ export const RegisterBusinessScreen: React.FC = () => {
           {/* PASO 2: UBICACIÓN Y CONTACTO */}
           {step === 2 && (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepHeading}>Ubicación y Contacto</Text>
-              <Text style={styles.stepSubheading}>
-                Donde concurren tus clientes y el teléfono para coordinar reservas y avisos.
-              </Text>
+              <View style={styles.stepHeaderGroup}>
+                <View style={[styles.stepHeaderIconBox, { backgroundColor: '#dcfce7' }]}>
+                  <Ionicons name="location" size={20} color="#16a34a" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepHeading}>Ubicación y Contacto</Text>
+                  <Text style={styles.stepSubheading}>
+                    Donde concurren tus clientes y el teléfono para coordinar reservas y avisos.
+                  </Text>
+                </View>
+              </View>
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Dirección Física Completa *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ej: Av. Santa Fe 3250, Piso 1 Local 4"
-                  placeholderTextColor={Colors.textDisabled}
-                  value={address}
-                  onChangeText={setAddress}
-                />
+                <View style={styles.inputWithIcon}>
+                  <Ionicons name="location-outline" size={18} color={Colors.textSecondary} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.inputInside}
+                    placeholder="Ej: Av. Santa Fe 3250, Piso 1 Local 4"
+                    placeholderTextColor={Colors.textDisabled}
+                    value={address}
+                    onChangeText={setAddress}
+                  />
+                </View>
               </View>
 
               <View style={styles.formRow}>
@@ -344,14 +362,17 @@ export const RegisterBusinessScreen: React.FC = () => {
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Teléfono o WhatsApp de Contacto *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ej: +54 9 11 1234-5678"
-                  placeholderTextColor={Colors.textDisabled}
-                  keyboardType="phone-pad"
-                  value={phone}
-                  onChangeText={setPhone}
-                />
+                <View style={styles.inputWithIcon}>
+                  <Ionicons name="logo-whatsapp" size={18} color="#16a34a" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.inputInside}
+                    placeholder="Ej: +54 9 11 1234-5678"
+                    placeholderTextColor={Colors.textDisabled}
+                    keyboardType="phone-pad"
+                    value={phone}
+                    onChangeText={setPhone}
+                  />
+                </View>
               </View>
 
               <View style={styles.buttonRow}>
@@ -375,26 +396,46 @@ export const RegisterBusinessScreen: React.FC = () => {
           {/* PASO 3: EVIDENCIAS DE VERACIDAD */}
           {step === 3 && (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepHeading}>Evidencias de Veracidad</Text>
-              <Text style={styles.stepSubheading}>
-                Para garantizar la seguridad de la comunidad, la administración corrobora las redes o ficha de cada local antes de activarlo.
-              </Text>
+              <View style={styles.stepHeaderGroup}>
+                <View style={[styles.stepHeaderIconBox, { backgroundColor: '#fef3c7' }]}>
+                  <Ionicons name="shield-checkmark" size={20} color="#b45309" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepHeading}>Evidencias de Veracidad</Text>
+                  <Text style={styles.stepSubheading}>
+                    Para garantizar la seguridad de la comunidad, la administración corrobora las redes o ficha de cada local antes de activarlo.
+                  </Text>
+                </View>
+              </View>
 
-              {/* Instagram */}
+              {/* Instagram Card con Estado */}
               <View style={styles.evidenceInputCard}>
                 <View style={styles.evidenceCardHeader}>
                   <View style={styles.evidenceIconTitle}>
-                    <Ionicons name="logo-instagram" size={18} color="#e1306c" />
+                    <View style={[styles.evidenceIconCircle, { backgroundColor: '#fce7f3' }]}>
+                      <Ionicons name="logo-instagram" size={15} color="#e1306c" />
+                    </View>
                     <Text style={[styles.evidenceCardTitle, { color: '#e1306c' }]}>Instagram</Text>
                   </View>
-                  {instagram.trim().length > 0 && (
-                    <TouchableOpacity onPress={() => handleTestUrl(formatInstagramUrl(instagram))}>
-                      <Text style={[styles.testLinkText, { color: '#e1306c' }]}>Probar link ↗</Text>
-                    </TouchableOpacity>
-                  )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {instagram.trim().length > 0 ? (
+                      <>
+                        <TouchableOpacity onPress={() => handleTestUrl(formatInstagramUrl(instagram))}>
+                          <Text style={[styles.testLinkText, { color: '#e1306c' }]}>Probar link ↗</Text>
+                        </TouchableOpacity>
+                        <View style={styles.statusChipSuccess}>
+                          <Text style={styles.statusChipSuccessText}>✓ Cargado</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <View style={styles.statusChipPending}>
+                        <Text style={styles.statusChipPendingText}>Opcional</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 <TextInput
-                  style={styles.input}
+                  style={styles.inputClean}
                   placeholder="@tu_comercio o https://instagram.com/tu_comercio"
                   placeholderTextColor={Colors.textDisabled}
                   autoCapitalize="none"
@@ -403,21 +444,34 @@ export const RegisterBusinessScreen: React.FC = () => {
                 />
               </View>
 
-              {/* Facebook */}
+              {/* Facebook Card con Estado */}
               <View style={styles.evidenceInputCard}>
                 <View style={styles.evidenceCardHeader}>
                   <View style={styles.evidenceIconTitle}>
-                    <Ionicons name="logo-facebook" size={18} color="#1877f2" />
+                    <View style={[styles.evidenceIconCircle, { backgroundColor: '#eff6ff' }]}>
+                      <Ionicons name="logo-facebook" size={15} color="#1877f2" />
+                    </View>
                     <Text style={[styles.evidenceCardTitle, { color: '#1877f2' }]}>Facebook</Text>
                   </View>
-                  {facebook.trim().length > 0 && (
-                    <TouchableOpacity onPress={() => handleTestUrl(facebook)}>
-                      <Text style={[styles.testLinkText, { color: '#1877f2' }]}>Probar link ↗</Text>
-                    </TouchableOpacity>
-                  )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {facebook.trim().length > 0 ? (
+                      <>
+                        <TouchableOpacity onPress={() => handleTestUrl(facebook)}>
+                          <Text style={[styles.testLinkText, { color: '#1877f2' }]}>Probar link ↗</Text>
+                        </TouchableOpacity>
+                        <View style={styles.statusChipSuccess}>
+                          <Text style={styles.statusChipSuccessText}>✓ Cargado</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <View style={styles.statusChipPending}>
+                        <Text style={styles.statusChipPendingText}>Opcional</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 <TextInput
-                  style={styles.input}
+                  style={styles.inputClean}
                   placeholder="https://facebook.com/tu_negocio"
                   placeholderTextColor={Colors.textDisabled}
                   autoCapitalize="none"
@@ -426,22 +480,35 @@ export const RegisterBusinessScreen: React.FC = () => {
                 />
               </View>
 
-              {/* Google Maps */}
+              {/* Google Maps Card con Estado */}
               <View style={styles.evidenceInputCard}>
                 <View style={styles.evidenceCardHeader}>
                   <View style={styles.evidenceIconTitle}>
-                    <Ionicons name="map-outline" size={18} color="#dc2626" />
+                    <View style={[styles.evidenceIconCircle, { backgroundColor: '#fee2e2' }]}>
+                      <Ionicons name="map" size={15} color="#dc2626" />
+                    </View>
                     <Text style={[styles.evidenceCardTitle, { color: '#dc2626' }]}>Google Maps</Text>
                   </View>
-                  {googleMaps.trim().length > 0 && (
-                    <TouchableOpacity onPress={() => handleTestUrl(googleMaps)}>
-                      <Text style={[styles.testLinkText, { color: '#dc2626' }]}>Probar link ↗</Text>
-                    </TouchableOpacity>
-                  )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {googleMaps.trim().length > 0 ? (
+                      <>
+                        <TouchableOpacity onPress={() => handleTestUrl(googleMaps)}>
+                          <Text style={[styles.testLinkText, { color: '#dc2626' }]}>Probar link ↗</Text>
+                        </TouchableOpacity>
+                        <View style={styles.statusChipSuccess}>
+                          <Text style={styles.statusChipSuccessText}>✓ Cargado</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <View style={styles.statusChipPending}>
+                        <Text style={styles.statusChipPendingText}>Opcional</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 <TextInput
-                  style={styles.input}
-                  placeholder="https://maps.app.goo.gl/... o enlace al local"
+                  style={styles.inputClean}
+                  placeholder="https://maps.app.goo.gl/... o enlace del local"
                   placeholderTextColor={Colors.textDisabled}
                   autoCapitalize="none"
                   value={googleMaps}
@@ -449,21 +516,34 @@ export const RegisterBusinessScreen: React.FC = () => {
                 />
               </View>
 
-              {/* Sitio Web Oficial */}
+              {/* Sitio Web Oficial Card con Estado */}
               <View style={styles.evidenceInputCard}>
                 <View style={styles.evidenceCardHeader}>
                   <View style={styles.evidenceIconTitle}>
-                    <Ionicons name="globe-outline" size={18} color="#0284c7" />
+                    <View style={[styles.evidenceIconCircle, { backgroundColor: '#e0f2fe' }]}>
+                      <Ionicons name="globe" size={15} color="#0284c7" />
+                    </View>
                     <Text style={[styles.evidenceCardTitle, { color: '#0284c7' }]}>Sitio Web Oficial</Text>
                   </View>
-                  {website.trim().length > 0 && (
-                    <TouchableOpacity onPress={() => handleTestUrl(website)}>
-                      <Text style={[styles.testLinkText, { color: '#0284c7' }]}>Probar link ↗</Text>
-                    </TouchableOpacity>
-                  )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {website.trim().length > 0 ? (
+                      <>
+                        <TouchableOpacity onPress={() => handleTestUrl(website)}>
+                          <Text style={[styles.testLinkText, { color: '#0284c7' }]}>Probar link ↗</Text>
+                        </TouchableOpacity>
+                        <View style={styles.statusChipSuccess}>
+                          <Text style={styles.statusChipSuccessText}>✓ Cargado</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <View style={styles.statusChipPending}>
+                        <Text style={styles.statusChipPendingText}>Opcional</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 <TextInput
-                  style={styles.input}
+                  style={styles.inputClean}
                   placeholder="https://www.tunegocio.com"
                   placeholderTextColor={Colors.textDisabled}
                   autoCapitalize="none"
@@ -476,12 +556,23 @@ export const RegisterBusinessScreen: React.FC = () => {
               <View style={styles.evidenceInputCard}>
                 <View style={styles.evidenceCardHeader}>
                   <View style={styles.evidenceIconTitle}>
-                    <Ionicons name="document-text-outline" size={18} color="#475569" />
+                    <View style={[styles.evidenceIconCircle, { backgroundColor: '#f1f5f9' }]}>
+                      <Ionicons name="document-text" size={15} color="#475569" />
+                    </View>
                     <Text style={[styles.evidenceCardTitle, { color: '#334155' }]}>CUIT Tributario (Opcional)</Text>
                   </View>
+                  {cuit.trim().length > 0 ? (
+                    <View style={styles.statusChipSuccess}>
+                      <Text style={styles.statusChipSuccessText}>✓ Ingresado</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.statusChipPending}>
+                      <Text style={styles.statusChipPendingText}>Opcional</Text>
+                    </View>
+                  )}
                 </View>
                 <TextInput
-                  style={styles.input}
+                  style={styles.inputClean}
                   placeholder="Ej: 20-12345678-9 o 11 dígitos numéricos"
                   placeholderTextColor={Colors.textDisabled}
                   keyboardType="numeric"
@@ -498,7 +589,7 @@ export const RegisterBusinessScreen: React.FC = () => {
                   style={{ flex: 1, marginRight: Spacing.sm }}
                 />
                 <Button
-                  title="Siguiente: Resumen →"
+                  title="Siguiente: Previsualizar →"
                   onPress={() => setStep(4)}
                   style={{ flex: 1.5 }}
                 />
@@ -506,97 +597,122 @@ export const RegisterBusinessScreen: React.FC = () => {
             </View>
           )}
 
-          {/* PASO 4: RESUMEN Y CONFIRMACIÓN */}
+          {/* PASO 4: FICHA DE PREVISUALIZACIÓN OFICIAL */}
           {step === 4 && (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepHeading}>Resumen de tu Solicitud</Text>
-              <Text style={styles.stepSubheading}>
-                Revisá los datos antes de enviar. Al confirmar, tu solicitud ingresará al proceso de auditoría y alta.
-              </Text>
-
-              <Card style={styles.summaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Nombre:</Text>
-                  <Text style={styles.summaryValue}>{name}</Text>
+              <View style={styles.stepHeaderGroup}>
+                <View style={[styles.stepHeaderIconBox, { backgroundColor: '#eff6ff' }]}>
+                  <Ionicons name="eye" size={20} color={Colors.primary} />
                 </View>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Categoría:</Text>
-                  <Text style={styles.summaryValue}>{category}</Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Dirección:</Text>
-                  <Text style={styles.summaryValue}>
-                    {address} {city ? `(${city})` : ''}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepHeading}>Previsualización del Comercio</Text>
+                  <Text style={styles.stepSubheading}>
+                    Revisá cómo se presentará tu negocio ante los clientes y el equipo de auditoría.
                   </Text>
                 </View>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Teléfono:</Text>
-                  <Text style={styles.summaryValue}>{phone}</Text>
+              </View>
+
+              {/* Credencial Oficial del Comercio */}
+              <View style={styles.previewCard}>
+                <View style={styles.previewHeader}>
+                  <View style={styles.previewAvatar}>
+                    <Text style={styles.previewAvatarText}>
+                      {(name || 'N').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.previewName}>{name || 'Nombre del Negocio'}</Text>
+                    <View style={styles.previewCategoryBadge}>
+                      <Text style={styles.previewCategoryBadgeText}>{category}</Text>
+                    </View>
+                  </View>
                 </View>
+
+                {description ? (
+                  <Text style={styles.previewDescription}>{description}</Text>
+                ) : null}
+
+                <View style={styles.previewDivider} />
+
+                {/* Datos de Contacto y Ubicación */}
+                <View style={styles.previewRow}>
+                  <Ionicons name="location" size={16} color={Colors.primary} />
+                  <Text style={styles.previewRowText}>
+                    {address} {city ? `• ${city}` : ''} {province ? `(${province})` : ''}
+                  </Text>
+                </View>
+
+                <View style={styles.previewRow}>
+                  <Ionicons name="logo-whatsapp" size={16} color="#16a34a" />
+                  <Text style={styles.previewRowText}>{phone}</Text>
+                </View>
+
                 {email ? (
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Email:</Text>
-                    <Text style={styles.summaryValue}>{email}</Text>
+                  <View style={styles.previewRow}>
+                    <Ionicons name="mail" size={16} color="#0284c7" />
+                    <Text style={styles.previewRowText}>{email}</Text>
                   </View>
                 ) : null}
 
-                <View style={styles.divider} />
-
-                <Text style={styles.summaryEvidenceTitle}>Evidencias adjuntadas:</Text>
+                {/* Evidencias Oficiales Vinculadas */}
+                <View style={styles.previewDivider} />
+                <Text style={styles.previewEvidenceHeading}>Canales & Evidencias Vinculadas:</Text>
                 <View style={styles.evidenceSummaryList}>
                   {instagram ? (
-                    <View style={styles.evidenceChip}>
+                    <View style={[styles.evidenceChip, { backgroundColor: '#fce7f3' }]}>
                       <Ionicons name="logo-instagram" size={12} color="#e1306c" />
-                      <Text style={styles.evidenceChipText}>Instagram</Text>
+                      <Text style={[styles.evidenceChipText, { color: '#e1306c' }]}>Instagram</Text>
                     </View>
                   ) : null}
                   {facebook ? (
-                    <View style={styles.evidenceChip}>
+                    <View style={[styles.evidenceChip, { backgroundColor: '#eff6ff' }]}>
                       <Ionicons name="logo-facebook" size={12} color="#1877f2" />
-                      <Text style={styles.evidenceChipText}>Facebook</Text>
+                      <Text style={[styles.evidenceChipText, { color: '#1877f2' }]}>Facebook</Text>
                     </View>
                   ) : null}
                   {googleMaps ? (
-                    <View style={styles.evidenceChip}>
-                      <Ionicons name="map-outline" size={12} color="#dc2626" />
-                      <Text style={styles.evidenceChipText}>Maps</Text>
+                    <View style={[styles.evidenceChip, { backgroundColor: '#fee2e2' }]}>
+                      <Ionicons name="map" size={12} color="#dc2626" />
+                      <Text style={[styles.evidenceChipText, { color: '#dc2626' }]}>Google Maps</Text>
                     </View>
                   ) : null}
                   {website ? (
-                    <View style={styles.evidenceChip}>
-                      <Ionicons name="globe-outline" size={12} color="#0284c7" />
-                      <Text style={styles.evidenceChipText}>Web</Text>
+                    <View style={[styles.evidenceChip, { backgroundColor: '#e0f2fe' }]}>
+                      <Ionicons name="globe" size={12} color="#0284c7" />
+                      <Text style={[styles.evidenceChipText, { color: '#0284c7' }]}>Web Oficial</Text>
                     </View>
                   ) : null}
                   {cuit ? (
-                    <View style={styles.evidenceChip}>
-                      <Ionicons name="document-text-outline" size={12} color="#475569" />
-                      <Text style={styles.evidenceChipText}>CUIT</Text>
+                    <View style={[styles.evidenceChip, { backgroundColor: '#f1f5f9' }]}>
+                      <Ionicons name="document-text" size={12} color="#475569" />
+                      <Text style={[styles.evidenceChipText, { color: '#475569' }]}>CUIT: {cuit}</Text>
                     </View>
                   ) : null}
                   {!instagram && !facebook && !googleMaps && !website && !cuit ? (
-                    <Text style={styles.noEvidenceText}>Sin enlaces adjuntados</Text>
+                    <Text style={styles.noEvidenceText}>Sin enlaces adjuntos</Text>
                   ) : null}
                 </View>
-              </Card>
+              </View>
 
+              {/* Disclaimer de Veracidad Legal */}
               <View style={styles.disclaimerBox}>
-                <Ionicons name="shield-checkmark-outline" size={18} color="#0284c7" />
+                <Ionicons name="shield-checkmark" size={20} color="#0284c7" />
                 <Text style={styles.disclaimerText}>
                   Declaro que la información ingresada es fidedigna y corresponde al comercio real del cual soy titular o responsable habilitado.
                 </Text>
               </View>
 
+              {/* Botones de Envío */}
               <View style={styles.buttonRow}>
                 <Button
-                  title="← Volver"
+                  title="← Modificar"
                   variant="outline"
                   onPress={() => setStep(3)}
                   disabled={submitting}
                   style={{ flex: 1, marginRight: Spacing.sm }}
                 />
                 <Button
-                  title={submitting ? 'Enviando...' : isEditing ? 'Guardar y Reenviar' : 'Enviar Solicitud'}
+                  title={submitting ? 'Enviando...' : isEditing ? 'Guardar y Reenviar' : 'Enviar a Auditoría Oficial'}
                   onPress={handleSubmit}
                   disabled={submitting}
                   style={{ flex: 1.8 }}
@@ -633,59 +749,83 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
     color: Colors.textTitle,
   },
-  stepsHeader: {
+  progressBarTrack: {
+    height: 4,
+    backgroundColor: Colors.border,
+    width: '100%',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: 2,
+  },
+  stepHeaderBar: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: Colors.surface,
-    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    justifyContent: 'space-around',
   },
-  stepIndicatorItem: {
+  stepBadge: {
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+  },
+  stepBadgeText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    color: Colors.primary,
+    letterSpacing: 0.5,
+  },
+  stepCurrentTitle: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textTitle,
+  },
+  stepDotsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  stepCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.background,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+  stepDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.border,
   },
-  stepCircleActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight,
-  },
-  stepCircleCompleted: {
+  stepDotActive: {
+    width: 14,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
   },
-  stepNumberText: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-    color: Colors.textSecondary,
-  },
-  stepNumberTextActive: {
-    color: Colors.primary,
-  },
-  stepLabelText: {
-    fontSize: 10,
-    fontWeight: Typography.weights.semiBold,
-    color: Colors.textSecondary,
-  },
-  stepLabelTextActive: {
-    color: Colors.primary,
-    fontWeight: Typography.weights.bold,
+  stepDotCompleted: {
+    backgroundColor: Colors.primary,
   },
   scrollContent: {
     padding: Spacing.md,
+    paddingBottom: Spacing.xl + 20,
   },
   stepContainer: {
     gap: Spacing.md,
+  },
+  stepHeaderGroup: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  stepHeaderIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stepHeading: {
     fontSize: Typography.sizes.lg,
@@ -693,10 +833,10 @@ const styles = StyleSheet.create({
     color: Colors.textTitle,
   },
   stepSubheading: {
-    fontSize: Typography.sizes.sm,
+    fontSize: Typography.sizes.xs,
     color: Colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: Spacing.xs,
+    lineHeight: 18,
+    marginTop: 2,
   },
   formGroup: {
     gap: 6,
@@ -709,12 +849,35 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
     color: Colors.textTitle,
   },
+  charCountText: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.semiBold,
+  },
   input: {
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    fontSize: Typography.sizes.sm,
+    color: Colors.textTitle,
+  },
+  inputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.sm + 4,
+  },
+  inputIcon: {
+    marginRight: Spacing.xs,
+  },
+  inputInside: {
+    flex: 1,
     paddingVertical: Spacing.sm + 2,
     fontSize: Typography.sizes.sm,
     color: Colors.textTitle,
@@ -757,7 +920,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: BorderRadius.md,
-    padding: Spacing.sm,
+    padding: Spacing.sm + 4,
     gap: 8,
   },
   evidenceCardHeader: {
@@ -768,7 +931,14 @@ const styles = StyleSheet.create({
   evidenceIconTitle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+  },
+  evidenceIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   evidenceCardTitle: {
     fontSize: Typography.sizes.xs,
@@ -778,35 +948,114 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
   },
-  summaryCard: {
+  statusChipSuccess: {
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  statusChipSuccessText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    color: '#16a34a',
+  },
+  statusChipPending: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  statusChipPendingText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.medium,
+    color: '#64748b',
+  },
+  inputClean: {
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    paddingTop: 8,
+    paddingBottom: 2,
+    fontSize: Typography.sizes.xs,
+    color: Colors.textTitle,
+  },
+  previewCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: Spacing.md,
     gap: Spacing.sm,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  summaryRow: {
+  previewHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
-  summaryLabel: {
+  previewAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewAvatarText: {
+    fontSize: Typography.sizes.lg,
+    fontWeight: Typography.weights.bold,
+    color: Colors.primary,
+  },
+  previewName: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textTitle,
+  },
+  previewCategoryBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    marginTop: 2,
+  },
+  previewCategoryBadgeText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textSecondary,
+  },
+  previewDescription: {
     fontSize: Typography.sizes.xs,
     color: Colors.textSecondary,
-    fontWeight: Typography.weights.semiBold,
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
-  summaryValue: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.textTitle,
-    fontWeight: Typography.weights.bold,
-    maxWidth: '65%',
-    textAlign: 'right',
-  },
-  divider: {
+  previewDivider: {
     height: 1,
     backgroundColor: Colors.border,
-    marginVertical: 4,
+    marginVertical: 2,
   },
-  summaryEvidenceTitle: {
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  previewRowText: {
     fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
     color: Colors.textTitle,
+    flex: 1,
+  },
+  previewEvidenceHeading: {
+    fontSize: 11,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   evidenceSummaryList: {
     flexDirection: 'row',
@@ -817,14 +1066,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.background,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: BorderRadius.xs,
   },
   evidenceChipText: {
     fontSize: Typography.sizes.xs,
-    color: Colors.textTitle,
     fontWeight: Typography.weights.semiBold,
   },
   noEvidenceText: {
