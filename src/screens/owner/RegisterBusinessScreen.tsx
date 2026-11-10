@@ -749,83 +749,59 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
     color: Colors.textTitle,
   },
-  progressBarTrack: {
-    height: 4,
-    backgroundColor: Colors.border,
-    width: '100%',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 2,
-  },
-  stepHeaderBar: {
+  stepsHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: Colors.surface,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    justifyContent: 'space-around',
   },
-  stepBadge: {
-    backgroundColor: Colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.full,
-  },
-  stepBadgeText: {
-    fontSize: 10,
-    fontWeight: Typography.weights.bold,
-    color: Colors.primary,
-    letterSpacing: 0.5,
-  },
-  stepCurrentTitle: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.bold,
-    color: Colors.textTitle,
-  },
-  stepDotsRow: {
-    flexDirection: 'row',
+  stepIndicatorItem: {
     alignItems: 'center',
     gap: 4,
   },
-  stepDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.border,
+  stepCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.background,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  stepDotActive: {
-    width: 14,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.primary,
+  stepCircleActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
   },
-  stepDotCompleted: {
+  stepCircleCompleted: {
     backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  stepNumberText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textSecondary,
+  },
+  stepNumberTextActive: {
+    color: Colors.primary,
+  },
+  stepLabelText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.semiBold,
+    color: Colors.textSecondary,
+  },
+  stepLabelTextActive: {
+    color: Colors.primary,
+    fontWeight: Typography.weights.bold,
   },
   scrollContent: {
     padding: Spacing.md,
-    paddingBottom: Spacing.xl + 20,
   },
   stepContainer: {
     gap: Spacing.md,
-  },
-  stepHeaderGroup: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-    marginBottom: Spacing.xs,
-  },
-  stepHeaderIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   stepHeading: {
     fontSize: Typography.sizes.lg,
@@ -833,10 +809,10 @@ const styles = StyleSheet.create({
     color: Colors.textTitle,
   },
   stepSubheading: {
-    fontSize: Typography.sizes.xs,
+    fontSize: Typography.sizes.sm,
     color: Colors.textSecondary,
-    lineHeight: 18,
-    marginTop: 2,
+    lineHeight: 20,
+    marginBottom: Spacing.xs,
   },
   formGroup: {
     gap: 6,
@@ -849,35 +825,12 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
     color: Colors.textTitle,
   },
-  charCountText: {
-    fontSize: 10,
-    color: Colors.textSecondary,
-    fontWeight: Typography.weights.semiBold,
-  },
   input: {
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    fontSize: Typography.sizes.sm,
-    color: Colors.textTitle,
-  },
-  inputWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.sm + 4,
-  },
-  inputIcon: {
-    marginRight: Spacing.xs,
-  },
-  inputInside: {
-    flex: 1,
     paddingVertical: Spacing.sm + 2,
     fontSize: Typography.sizes.sm,
     color: Colors.textTitle,
@@ -920,7 +873,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: BorderRadius.md,
-    padding: Spacing.sm + 4,
+    padding: Spacing.sm,
     gap: 8,
   },
   evidenceCardHeader: {
@@ -931,14 +884,7 @@ const styles = StyleSheet.create({
   evidenceIconTitle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  evidenceIconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
   },
   evidenceCardTitle: {
     fontSize: Typography.sizes.xs,
@@ -948,114 +894,35 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
   },
-  statusChipSuccess: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.full,
-  },
-  statusChipSuccessText: {
-    fontSize: 10,
-    fontWeight: Typography.weights.bold,
-    color: '#16a34a',
-  },
-  statusChipPending: {
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.full,
-  },
-  statusChipPendingText: {
-    fontSize: 10,
-    fontWeight: Typography.weights.medium,
-    color: '#64748b',
-  },
-  inputClean: {
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    paddingTop: 8,
-    paddingBottom: 2,
-    fontSize: Typography.sizes.xs,
-    color: Colors.textTitle,
-  },
-  previewCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  summaryCard: {
     padding: Spacing.md,
     gap: Spacing.sm,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
   },
-  previewHeader: {
+  summaryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
+    justifyContent: 'space-between',
   },
-  previewAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.primaryLight,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewAvatarText: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.bold,
-    color: Colors.primary,
-  },
-  previewName: {
-    fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.bold,
-    color: Colors.textTitle,
-  },
-  previewCategoryBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.full,
-    marginTop: 2,
-  },
-  previewCategoryBadgeText: {
-    fontSize: 10,
-    fontWeight: Typography.weights.bold,
-    color: Colors.textSecondary,
-  },
-  previewDescription: {
+  summaryLabel: {
     fontSize: Typography.sizes.xs,
     color: Colors.textSecondary,
-    lineHeight: 18,
-    fontStyle: 'italic',
+    fontWeight: Typography.weights.semiBold,
   },
-  previewDivider: {
+  summaryValue: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.textTitle,
+    fontWeight: Typography.weights.bold,
+    maxWidth: '65%',
+    textAlign: 'right',
+  },
+  divider: {
     height: 1,
     backgroundColor: Colors.border,
-    marginVertical: 2,
+    marginVertical: 4,
   },
-  previewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  previewRowText: {
+  summaryEvidenceTitle: {
     fontSize: Typography.sizes.xs,
-    color: Colors.textTitle,
-    flex: 1,
-  },
-  previewEvidenceHeading: {
-    fontSize: 11,
     fontWeight: Typography.weights.bold,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: Colors.textTitle,
   },
   evidenceSummaryList: {
     flexDirection: 'row',
@@ -1066,12 +933,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: Colors.background,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: BorderRadius.xs,
   },
   evidenceChipText: {
     fontSize: Typography.sizes.xs,
+    color: Colors.textTitle,
     fontWeight: Typography.weights.semiBold,
   },
   noEvidenceText: {
