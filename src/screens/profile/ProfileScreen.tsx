@@ -314,7 +314,7 @@ export const ProfileScreen: React.FC = () => {
   };
 
   // Flujo 2FA (Google Authenticator)
-  const handleOpenTwoFactorModal = async () => {
+  const handleOpenTwoFactorModal = async (forceReset: boolean = false) => {
     setTwoFactorError(null);
     setTwoFactorCodeInput('');
     setTwoFactorDisablePassword('');
@@ -328,7 +328,8 @@ export const ProfileScreen: React.FC = () => {
       setShowTwoFactorModal(true);
       setTwoFactorLoading(true);
       try {
-        const res = await api.get('/auth/2fa/setup');
+        const url = forceReset ? '/auth/2fa/setup?reset=true' : '/auth/2fa/setup';
+        const res = await api.get(url);
         setTwoFactorSecret(res.data.secret);
       } catch (err: any) {
         setTwoFactorError(err.response?.data?.message || 'Error al iniciar configuración 2FA.');
@@ -353,7 +354,7 @@ export const ProfileScreen: React.FC = () => {
   };
 
   const handleVerifyAndEnableTwoFactor = async () => {
-    const code = twoFactorCodeInput.replace(/\s+/g, '');
+    const code = twoFactorCodeInput.replace(/[\s-]+/g, '');
     if (code.length < 6) {
       setTwoFactorError('Ingresá el código de 6 dígitos generado por tu app.');
       return;
@@ -1661,6 +1662,16 @@ export const ProfileScreen: React.FC = () => {
                   <Text style={styles.secretKeyHint}>
                     {twoFactorCopied ? '¡Clave copiada al portapapeles!' : 'Tocá la clave para copiarla'}
                   </Text>
+
+                  <TouchableOpacity
+                    onPress={() => handleOpenTwoFactorModal(true)}
+                    disabled={twoFactorLoading}
+                    style={{ alignItems: 'center', marginBottom: Spacing.sm }}
+                  >
+                    <Text style={{ fontSize: 12, color: Colors.primary, textDecorationLine: 'underline' }}>
+                      ¿Problemas con el código? Generar nueva clave
+                    </Text>
+                  </TouchableOpacity>
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Código de 6 dígitos generado por la app</Text>
