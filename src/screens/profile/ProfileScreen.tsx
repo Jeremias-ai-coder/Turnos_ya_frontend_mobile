@@ -620,8 +620,8 @@ export const ProfileScreen: React.FC = () => {
   const handleFinalizePasswordChange = async () => {
     setPasswordError(null);
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('Completá todos los campos.');
+    if (!newPassword || !confirmPassword) {
+      setPasswordError('Completá la nueva contraseña y su confirmación.');
       return;
     }
     if (newPassword.length < 6) {
@@ -637,8 +637,8 @@ export const ProfileScreen: React.FC = () => {
     try {
       const res = await api.post('/auth/submit-password-change', {
         changeAuthToken,
-        currentPassword,
         newPassword,
+        skipCurrentPassword: true,
       });
       setShowPasswordModal(false);
       Alert.alert('¡Éxito!', res.data?.message || 'Tu contraseña fue actualizada correctamente.');
@@ -2306,30 +2306,6 @@ export const ProfileScreen: React.FC = () => {
               {/* CASO 4: FORMULARIO DE NUEVA CONTRASEÑA */}
               {passwordChangeStep === 'set_passwords' && (
                 <View style={{ marginTop: Spacing.sm }}>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Contraseña Actual</Text>
-                    <View style={styles.inputWithIcon}>
-                      <TextInput
-                        style={styles.modalInputWithIcon}
-                        placeholder="••••••••"
-                        placeholderTextColor={Colors.textDisabled}
-                        value={currentPassword}
-                        onChangeText={setCurrentPassword}
-                        secureTextEntry={!showCurrentPass}
-                      />
-                      <TouchableOpacity
-                        onPress={() => setShowCurrentPass(!showCurrentPass)}
-                        style={{ padding: 6 }}
-                      >
-                        <Ionicons
-                          name={showCurrentPass ? 'eye-off-outline' : 'eye-outline'}
-                          size={18}
-                          color={Colors.textSecondary}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Nueva Contraseña (mín. 6 caracteres)</Text>
                     <View style={styles.inputWithIcon}>
