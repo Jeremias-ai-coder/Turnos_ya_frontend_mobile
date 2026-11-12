@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 54" width="240" height="54" fill="none">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800;900&amp;display=swap');
+      .txt-turnos {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.8px;
+      }
+      .txt-ya {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        font-size: 26px;
+        font-weight: 900;
+        letter-spacing: -0.3px;
+      }
+    </style>
+    <filter id="badge-shadow-white" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <!-- Text: Turnos -->
+  <text x="6" y="38" class="txt-turnos" fill="#ffffff">Turnos</text>
+
+  <!-- Speed Badge Capsule -->
+  <g transform="translate(138, 10)">
+    <!-- Skewed Badge Background -->
+    <rect x="0" y="0" width="86" height="34" rx="9" fill="#ffffff" transform="skewX(-10)" filter="url(#badge-shadow-white)" />
+
+    <!-- Unskewed Content Inside Badge -->
+    <g transform="translate(10, 0)">
+      <text x="5" y="25" class="txt-ya" fill="#009ee3">Ya</text>
+      <!-- Checkmark -->
+      <polyline points="48,12 55,21 68,9" stroke="#009ee3" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+    </g>
+  </g>
+</svg>

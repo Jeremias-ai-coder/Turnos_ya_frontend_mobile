@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@900&amp;display=swap');
+      .txt-badge-icon {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        font-size: 20px;
+        font-weight: 900;
+      }
+    </style>
+  </defs>
+
+  <!-- Squircle Base -->
+  <rect width="64" height="64" rx="16" fill="#009ee3"  />
+
+  <!-- Centered Skewed Badge -->
+  <g transform="translate(9, 16)">
+    <rect x="0" y="0" width="46" height="32" rx="8" fill="#ffffff" transform="skewX(-8)" />
+    <g transform="translate(3, 0)">
+      <text x="2" y="23" class="txt-badge-icon" fill="#009ee3">Ya</text>
+      <polyline points="26,12 31,19 40,8" stroke="#009ee3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+    </g>
+  </g>
+</svg>
