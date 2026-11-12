@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../common/Card';
 import { Colors, Typography, BorderRadius, Spacing } from '../../constants/theme';
@@ -9,9 +9,22 @@ import { formatDistance } from '../../utils/locationHelper';
 interface BusinessCardProps {
   business: Business;
   onPress: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
-export const BusinessCard: React.FC<BusinessCardProps> = ({ business, onPress }) => {
+export const BusinessCard: React.FC<BusinessCardProps> = ({
+  business,
+  onPress,
+  isFavorite = false,
+  onToggleFavorite,
+}) => {
+  const rawSchedules = (business as any).schedules;
+  const bizSchedules = Array.isArray(rawSchedules) ? rawSchedules : [];
+  const jsDay = new Date().getDay();
+  const todayDayOfWeek = jsDay === 0 ? 7 : jsDay;
+  const opensToday = bizSchedules.some((s: any) => Number(s.dayOfWeek) === todayDayOfWeek);
+
   return (
     <Card onPress={onPress} style={styles.card}>
       <View style={styles.headerRow}>
@@ -24,14 +37,33 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({ business, onPress })
             <Text style={styles.title} numberOfLines={1}>
               {business.name}
             </Text>
-            {business.rating ? (
-              <View style={styles.ratingBadge}>
-                <Ionicons name="star" size={13} color={Colors.star} />
-                <Text style={styles.ratingText}>
-                  {Number(business.rating).toFixed(1)}
-                </Text>
-              </View>
-            ) : null}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {business.rating ? (
+                <View style={styles.ratingBadge}>
+                  <Ionicons name="star" size={13} color={Colors.star} />
+                  <Text style={styles.ratingText}>
+                    {Number(business.rating).toFixed(1)}
+                  </Text>
+                </View>
+              ) : null}
+              {onToggleFavorite && (
+                <TouchableOpacity
+                  onPress={onToggleFavorite}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={[
+                    styles.favBtn,
+                    isFavorite && styles.favBtnActive,
+                  ]}
+                >
+                  <Ionicons
+                    name={isFavorite ? 'heart' : 'heart-outline'}
+                    size={16}
+                    color={isFavorite ? '#e11d48' : Colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           <View style={styles.badgeRow}>
@@ -40,6 +72,19 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({ business, onPress })
                 {business.category || 'General'}
               </Text>
             </View>
+
+            {bizSchedules.length > 0 && (
+              opensToday ? (
+                <View style={styles.openTodayBadge}>
+                  <View style={styles.openTodayDot} />
+                  <Text style={styles.openTodayText}>Abre hoy</Text>
+                </View>
+              ) : (
+                <View style={styles.closedTodayBadge}>
+                  <Text style={styles.closedTodayText}>Cerrado hoy</Text>
+                </View>
+              )
+            )}
 
             {business.distanceKm !== undefined ? (
               <View style={styles.distanceBadge}>
@@ -133,8 +178,58 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 6,
     marginTop: 4,
+  },
+  favBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favBtnActive: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
+  },
+  openTodayBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    gap: 4,
+  },
+  openTodayDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10b981',
+  },
+  openTodayText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    color: '#065f46',
+  },
+  closedTodayBadge: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  closedTodayText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.semiBold,
+    color: '#64748b',
   },
   categoryBadge: {
     backgroundColor: Colors.surfaceAlt,

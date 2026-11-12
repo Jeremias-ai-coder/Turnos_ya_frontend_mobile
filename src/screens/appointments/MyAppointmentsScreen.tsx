@@ -353,6 +353,23 @@ export const MyAppointmentsScreen: React.FC = () => {
                       </TouchableOpacity>
                     </View>
                   )}
+                  {!isUpcomingActive && (item.businessId || item.business?.id) && (
+                    <View style={styles.cardFooter}>
+                      <Button
+                        title="🔄 Volver a reservar"
+                        variant="outline"
+                        size="sm"
+                        onPress={() =>
+                          navigation.navigate('BookingWizard', {
+                            businessId: item.businessId || item.business?.id,
+                            businessName: item.business?.name,
+                            businessAddress: item.business?.address,
+                            preselectedServiceId: item.serviceId || item.service?.id,
+                          })
+                        }
+                      />
+                    </View>
+                  )}
                 </Card>
               );
             }}

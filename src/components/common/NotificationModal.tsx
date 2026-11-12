@@ -95,13 +95,44 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     }
 
     onClose();
-    // Navegar a Mis Turnos si la notificación es sobre un turno
+
+    // Deep-linking inteligente según tipo de notificación o marcador #BIZ_{id}
+    const bizMatch = notif.message.match(/#BIZ_(\d+)/);
+    const extractedBizId = bizMatch ? Number(bizMatch[1]) : null;
+    const t = (notif.type || '').toUpperCase();
+
     if (
-      notif.type.includes('APPOINTMENT') ||
-      notif.type.includes('REMINDER') ||
+      t.includes('BUSINESS_BROADCAST') ||
+      t.includes('BUSINESS_HOLIDAY_CLOSURE') ||
+      t.includes('FREE_SLOT_ALERT')
+    ) {
+      if (extractedBizId) {
+        navigation.navigate('BusinessDetail', { businessId: extractedBizId });
+        return;
+      }
+    }
+
+    if (
+      t.includes('APPOINTMENT') ||
+      t.includes('REMINDER') ||
       notif.message.toLowerCase().includes('turno')
     ) {
       navigation.navigate('AppointmentsTab');
+      return;
+    }
+
+    if (
+      t.includes('BUSINESS_APPROVED') ||
+      t.includes('BUSINESS_OBSERVED') ||
+      t.includes('BUSINESS_PENDING') ||
+      t.includes('REVIEW')
+    ) {
+      navigation.navigate('ProfileTab');
+      return;
+    }
+
+    if (extractedBizId) {
+      navigation.navigate('BusinessDetail', { businessId: extractedBizId });
     }
   };
 
@@ -130,13 +161,17 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     filter === 'unread' ? notifications.filter((n) => !n.isRead) : notifications;
 
   const getIconForType = (type: string) => {
-    if (type.includes('CANCEL')) {
-      return { name: 'close-circle-outline' as const, color: Colors.danger, bg: '#fef2f2' };
+    const t = (type || '').toUpperCase();
+    if (t.includes('CANCEL') || t.includes('OBSERVED') || t.includes('HOLIDAY')) {
+      return { name: 'alert-circle-outline' as const, color: Colors.danger, bg: '#fef2f2' };
     }
-    if (type.includes('REMINDER')) {
+    if (t.includes('BROADCAST') || t.includes('PROMO')) {
+      return { name: 'megaphone-outline' as const, color: '#e11d48', bg: '#fff1f2' };
+    }
+    if (t.includes('REMINDER') || t.includes('RESCHEDULED')) {
       return { name: 'alarm-outline' as const, color: '#0284c7', bg: '#f0f9ff' };
     }
-    if (type.includes('CONFIRM')) {
+    if (t.includes('CONFIRM') || t.includes('APPROVED') || t.includes('COMPLETED')) {
       return { name: 'checkmark-circle-outline' as const, color: '#059669', bg: '#ecfdf5' };
     }
     return { name: 'notifications-outline' as const, color: Colors.primary, bg: Colors.primaryLight };
@@ -280,7 +315,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                       </View>
 
                       <Text style={styles.notifMessage} numberOfLines={3}>
-                        {notif.message}
+                        {notif.message.replace(/\s*#BIZ_\d+/g, '')}
                       </Text>
 
                       <Text style={styles.notifTime}>{formatRelativeTime(notif.createdAt)}</Text>

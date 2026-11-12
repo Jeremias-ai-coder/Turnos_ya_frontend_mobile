@@ -42,7 +42,8 @@ export type SubViewType =
   | 'devices'
   | 'notifications'
   | 'privacy'
-  | 'network';
+  | 'network'
+  | 'favorites';
 
 interface UserSessionItem {
   id: string;
@@ -89,6 +90,52 @@ export const ProfileScreen: React.FC = () => {
   const [sessions, setSessions] = useState<UserSessionItem[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionActionLoading, setSessionActionLoading] = useState<string | null>(null);
+
+  // Comercios Favoritos / Seguidos
+  const [favoriteBusinesses, setFavoriteBusinesses] = useState<any[]>([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
+
+  const loadFavoriteBusinesses = async () => {
+    if (!user) {
+      setFavoriteBusinesses([]);
+      return;
+    }
+    setLoadingFavorites(true);
+    try {
+      const res = await api.get('/businesses/my/favorites');
+      const list = res.data?.data ?? res.data ?? [];
+      setFavoriteBusinesses(Array.isArray(list) ? list : []);
+    } catch {
+      // silencioso
+    } finally {
+      setLoadingFavorites(false);
+    }
+  };
+
+  const handleToggleFavBizNotif = async (businessId: number, currentVal: boolean) => {
+    const nextVal = !currentVal;
+    setFavoriteBusinesses((prev) =>
+      prev.map((f) => (f.businessId === businessId ? { ...f, receiveNotifications: nextVal } : f))
+    );
+    try {
+      await api.patch(`/businesses/${businessId}/follow/notifications`, {
+        receiveNotifications: nextVal,
+      });
+    } catch {
+      setFavoriteBusinesses((prev) =>
+        prev.map((f) => (f.businessId === businessId ? { ...f, receiveNotifications: currentVal } : f))
+      );
+    }
+  };
+
+  const handleUnfollowFromProfile = async (businessId: number) => {
+    try {
+      await api.post(`/businesses/${businessId}/follow`);
+      setFavoriteBusinesses((prev) => prev.filter((f) => f.businessId !== businessId));
+    } catch {
+      // silencioso
+    }
+  };
 
   // Modal 2FA (Google Authenticator)
   const [showTwoFactorModal, setShowTwoFactorModal] = useState(false);
@@ -138,6 +185,7 @@ export const ProfileScreen: React.FC = () => {
 
     if (user) {
       loadSessions();
+      loadFavoriteBusinesses();
       setEditName(user.name || '');
       setEditPhone(user.phone || '');
     }
@@ -629,6 +677,7 @@ export const ProfileScreen: React.FC = () => {
     notifications: 'Notificaciones y Alertas',
     privacy: 'Privacidad y Legal',
     network: 'Servidor y Red',
+    favorites: 'Mis Comercios Favoritos',
   };
 
   // ==============================================================
@@ -1007,6 +1056,127 @@ export const ProfileScreen: React.FC = () => {
       <Text style={[styles.subViewHeaderDesc, { marginTop: Spacing.md, textAlign: 'center' }]}>
         ✓ Los cambios se guardan automáticamente en tu perfil.
       </Text>
+
+      <Text style={[styles.sectionHeaderTitle, { marginTop: Spacing.xl }]}>
+        AVISOS POR COMERCIO SEGUIDO ({favoriteBusinesses.length})
+      </Text>
+      <View style={styles.groupedList}>
+        {favoriteBusinesses.length === 0 ? (
+          <View style={{ padding: Spacing.lg, alignItems: 'center' }}>
+            <Text style={{ fontSize: 12, color: Colors.textSecondary, textAlign: 'center' }}>
+              Aún no seguís a ningún comercio. Tocá el corazón ❤️ en tus locales preferidos para recibir sus promos y avisos de feriados.
+            </Text>
+          </View>
+        ) : (
+          favoriteBusinesses.map((fav, idx) => (
+            <View key={fav.businessId}>
+              {idx > 0 && <View style={styles.groupedDivider} />}
+              <View style={styles.groupedRow}>
+                <View style={styles.groupedRowBody}>
+                  <Text style={styles.groupedRowTitle}>
+                    {fav.business?.name || `Comercio #${fav.businessId}`}
+                  </Text>
+                  <Text style={styles.groupedRowSubtitle}>
+                    {fav.receiveNotifications
+                      ? 'Recibiendo promos y avisos de feriados'
+                      : 'Avisos silenciados'}
+                  </Text>
+                </View>
+                <Switch
+                  value={Boolean(fav.receiveNotifications)}
+                  onValueChange={() => handleToggleFavBizNotif(fav.businessId, fav.receiveNotifications)}
+                  trackColor={{ false: Colors.border, true: Colors.primaryLight }}
+                  thumbColor={fav.receiveNotifications ? Colors.primary : '#f4f3f4'}
+                />
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+    </ScrollView>
+  );
+
+  // ==============================================================
+  // SUB-VISTA 4.5: MIS COMERCIOS FAVORITOS
+  // ==============================================================
+  const renderFavoritesSubView = () => (
+    <ScrollView contentContainerStyle={styles.subViewContent} showsVerticalScrollIndicator={false}>
+      <Text style={styles.subViewHeaderDesc}>
+        Gestioná tus comercios favoritos, entrá a reservar en 1 toque o activá/silenciá sus avisos de promociones y feriados.
+      </Text>
+
+      {loadingFavorites ? (
+        <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 20 }} />
+      ) : favoriteBusinesses.length === 0 ? (
+        <Card style={{ padding: Spacing.xl, alignItems: 'center' }}>
+          <Ionicons name="heart-outline" size={42} color="#fda4af" />
+          <Text style={{ fontWeight: '700', fontSize: 15, color: Colors.textTitle, marginTop: 8 }}>
+            Aún no tenés comercios en Favoritos
+          </Text>
+          <Text style={{ fontSize: 12, color: Colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: 14 }}>
+            Tocá el corazón ❤️ en cualquier comercio para guardarlo acá y enterarte de sus promociones o cierres por feriado.
+          </Text>
+          <Button
+            title="Explorar Comercios"
+            size="sm"
+            onPress={() => navigation.navigate('HomeTab')}
+          />
+        </Card>
+      ) : (
+        <View style={styles.groupedList}>
+          {favoriteBusinesses.map((fav, idx) => (
+            <View key={fav.businessId}>
+              {idx > 0 && <View style={styles.groupedDivider} />}
+              <View style={[styles.groupedRow, { flexWrap: 'wrap', gap: 8 }]}>
+                <TouchableOpacity
+                  style={{ flex: 1, minWidth: 160 }}
+                  onPress={() => navigation.navigate('BusinessDetail', { businessId: fav.businessId })}
+                >
+                  <Text style={styles.groupedRowTitle}>
+                    {fav.business?.name || `Comercio #${fav.businessId}`}
+                  </Text>
+                  <Text style={styles.groupedRowSubtitle}>
+                    {fav.business?.category || 'Servicios'} · {fav.business?.address || 'Ver local'}
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => handleToggleFavBizNotif(fav.businessId, fav.receiveNotifications)}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: BorderRadius.full,
+                      backgroundColor: fav.receiveNotifications ? '#f0f9ff' : '#f8fafc',
+                      borderWidth: 1,
+                      borderColor: fav.receiveNotifications ? '#bae6fd' : '#cbd5e1',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Ionicons
+                      name={fav.receiveNotifications ? 'notifications' : 'notifications-off-outline'}
+                      size={13}
+                      color={fav.receiveNotifications ? '#0284c7' : '#64748b'}
+                    />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: fav.receiveNotifications ? '#0284c7' : '#64748b' }}>
+                      {fav.receiveNotifications ? 'Avisos' : 'Silenciado'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => handleUnfollowFromProfile(fav.businessId)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="heart-dislike-outline" size={18} color="#e11d48" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 
@@ -1443,6 +1613,31 @@ export const ProfileScreen: React.FC = () => {
         <View style={styles.sectionWrap}>
           <Text style={styles.sectionHeaderTitle}>PREFERENCIAS</Text>
           <View style={styles.groupedList}>
+            {/* Mis Comercios Favoritos */}
+            <TouchableOpacity
+              style={styles.groupedRow}
+              onPress={() => {
+                loadFavoriteBusinesses();
+                setActiveSubView('favorites');
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.groupedRowIconWrap, { backgroundColor: '#fff1f2' }]}>
+                <Ionicons name="heart-outline" size={20} color="#e11d48" />
+              </View>
+              <View style={styles.groupedRowBody}>
+                <Text style={styles.groupedRowTitle}>Mis Comercios Favoritos</Text>
+                <Text style={styles.groupedRowSubtitle}>
+                  {favoriteBusinesses.length > 0
+                    ? `${favoriteBusinesses.length} comercio${favoriteBusinesses.length === 1 ? '' : 's'} seguido${favoriteBusinesses.length === 1 ? '' : 's'}`
+                    : 'Comercios seguidos y alertas de promociones'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textDisabled} />
+            </TouchableOpacity>
+
+            <View style={styles.groupedDivider} />
+
             {/* Notificaciones */}
             <TouchableOpacity
               style={styles.groupedRow}
@@ -1594,6 +1789,7 @@ export const ProfileScreen: React.FC = () => {
       {activeSubView === 'security' && renderSecuritySubView()}
       {activeSubView === 'devices' && renderDevicesSubView()}
       {activeSubView === 'notifications' && renderNotificationsSubView()}
+      {activeSubView === 'favorites' && renderFavoritesSubView()}
       {activeSubView === 'privacy' && renderPrivacySubView()}
       {activeSubView === 'network' && renderNetworkSubView()}
 

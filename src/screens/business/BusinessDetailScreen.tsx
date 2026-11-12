@@ -40,14 +40,31 @@ export const BusinessDetailScreen: React.FC = () => {
   const [pendingServiceId, setPendingServiceId] = useState<number | undefined>(undefined);
   const [copiedCuit, setCopiedCuit] = useState(false);
 
+  // Estado de Comunidad (Seguidores, Notificaciones, Feriados y Avisos del Comercio)
+  const [community, setCommunity] = useState<{
+    followersCount: number;
+    isFollowing: boolean;
+    receiveNotifications: boolean;
+    closedDates: { id: number; closedDate: string; reason: string }[];
+    recentBroadcasts: { id: number; type: string; title: string; message: string; sentCount: number; createdAt: string }[];
+  }>({
+    followersCount: 0,
+    isFollowing: false,
+    receiveNotifications: true,
+    closedDates: [],
+    recentBroadcasts: [],
+  });
+  const [togglingFollow, setTogglingFollow] = useState(false);
+
   useEffect(() => {
     const fetchBusinessData = async () => {
       try {
-        const [bRes, sRes, rRes, schRes] = await Promise.all([
+        const [bRes, sRes, rRes, schRes, commRes] = await Promise.all([
           api.get(`/businesses/${businessId}`),
           api.get(`/businesses/${businessId}/services`),
           api.get(`/reviews?businessId=${businessId}`).catch(() => ({ data: [] })),
           api.get(`/businesses/${businessId}/schedules`).catch(() => ({ data: [] })),
+          api.get(`/businesses/${businessId}/community`).catch(() => ({ data: null })),
         ]);
 
         setBusiness(bRes.data);
@@ -59,6 +76,17 @@ export const BusinessDetailScreen: React.FC = () => {
 
         const schData = schRes.data?.data ?? schRes.data ?? [];
         setSchedules(Array.isArray(schData) ? schData : []);
+
+        const commData = commRes.data?.data ?? commRes.data;
+        if (commData && typeof commData === 'object') {
+          setCommunity({
+            followersCount: Number(commData.followersCount || 0),
+            isFollowing: Boolean(commData.isFollowing),
+            receiveNotifications: commData.receiveNotifications !== false,
+            closedDates: Array.isArray(commData.closedDates) ? commData.closedDates : [],
+            recentBroadcasts: Array.isArray(commData.recentBroadcasts) ? commData.recentBroadcasts : [],
+          });
+        }
       } catch (err) {
         console.error('Error fetching business detail:', err);
       } finally {
@@ -70,6 +98,45 @@ export const BusinessDetailScreen: React.FC = () => {
       fetchBusinessData();
     }
   }, [businessId]);
+
+  const handleToggleFollow = async () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+    if (togglingFollow) return;
+    setTogglingFollow(true);
+    try {
+      const res = await api.post(`/businesses/${businessId}/follow`);
+      const data = res.data?.data ?? res.data;
+      if (data) {
+        setCommunity((prev) => ({
+          ...prev,
+          isFollowing: Boolean(data.isFollowing),
+          receiveNotifications: Boolean(data.receiveNotifications),
+          followersCount: typeof data.followersCount === 'number' ? data.followersCount : prev.followersCount,
+        }));
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo actualizar el seguimiento.');
+    } finally {
+      setTogglingFollow(false);
+    }
+  };
+
+  const handleToggleCommunityNotifications = async () => {
+    if (!user || !community.isFollowing) return;
+    const nextVal = !community.receiveNotifications;
+    setCommunity((prev) => ({ ...prev, receiveNotifications: nextVal }));
+    try {
+      await api.patch(`/businesses/${businessId}/follow/notifications`, {
+        receiveNotifications: nextVal,
+      });
+    } catch {
+      setCommunity((prev) => ({ ...prev, receiveNotifications: !nextVal }));
+      Alert.alert('Error', 'No se pudo cambiar la preferencia de avisos.');
+    }
+  };
 
   // Cálculo de si el comercio está abierto en este momento
   const isOpenNow = useMemo(() => {
@@ -224,7 +291,103 @@ export const BusinessDetailScreen: React.FC = () => {
               <Text style={styles.infoText}>{business.phone}</Text>
             </View>
           ) : null}
+
+          {/* Barra de Seguir Comercio y Avisos de Comunidad */}
+          <View style={styles.communityFollowRow}>
+            <TouchableOpacity
+              style={[
+                styles.followBtn,
+                community.isFollowing && styles.followBtnActive,
+              ]}
+              onPress={handleToggleFollow}
+              disabled={togglingFollow}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={community.isFollowing ? 'heart' : 'heart-outline'}
+                size={15}
+                color="#e11d48"
+              />
+              <Text style={styles.followBtnText}>
+                {community.isFollowing ? 'Siguiendo' : 'Seguir comercio'}
+              </Text>
+              <View
+                style={[
+                  styles.followCountBadge,
+                  community.isFollowing && styles.followCountBadgeActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.followCountText,
+                    community.isFollowing && styles.followCountTextActive,
+                  ]}
+                >
+                  {community.followersCount}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {community.isFollowing && (
+              <TouchableOpacity
+                style={[
+                  styles.notifToggleBtn,
+                  community.receiveNotifications && styles.notifToggleBtnActive,
+                ]}
+                onPress={handleToggleCommunityNotifications}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={community.receiveNotifications ? 'notifications' : 'notifications-off-outline'}
+                  size={14}
+                  color={community.receiveNotifications ? '#0284c7' : '#64748b'}
+                />
+                <Text
+                  style={[
+                    styles.notifToggleText,
+                    community.receiveNotifications && styles.notifToggleTextActive,
+                  ]}
+                >
+                  {community.receiveNotifications ? 'Avisos activos' : 'Silenciado'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </Card>
+
+        {/* Cartelera de Próximos Días Cerrados / Feriados */}
+        {community.closedDates.length > 0 && (
+          <Card style={styles.holidayCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <Ionicons name="calendar-clear" size={17} color="#d97706" />
+              <Text style={styles.holidayCardTitle}>Próximos Días Cerrados / Feriados</Text>
+            </View>
+            {community.closedDates.slice(0, 4).map((cd) => (
+              <View key={cd.id} style={styles.holidayRow}>
+                <Text style={styles.holidayDateText}>🏖️ {cd.closedDate}</Text>
+                <Text style={styles.holidayReasonText}>{cd.reason}</Text>
+              </View>
+            ))}
+          </Card>
+        )}
+
+        {/* Cartelera de Novedades y Promos del Comercio */}
+        {community.recentBroadcasts.length > 0 && (
+          <Card style={styles.broadcastCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="megaphone" size={16} color="#db2777" />
+                <Text style={styles.broadcastCardTitle}>Novedades y Promos del Comercio</Text>
+              </View>
+            </View>
+            {community.recentBroadcasts.slice(0, 2).map((bc) => (
+              <View key={bc.id} style={styles.broadcastItem}>
+                <Text style={styles.broadcastItemTitle}>{bc.title}</Text>
+                <Text style={styles.broadcastItemMsg}>{bc.message}</Text>
+              </View>
+            ))}
+          </Card>
+        )}
 
         {/* Social Proof & Evidences Bar */}
         {(business.instagramUrl ||
@@ -792,5 +955,137 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+  },
+  communityFollowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  followBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1.5,
+    borderColor: '#fecdd3',
+    backgroundColor: '#ffffff',
+  },
+  followBtnActive: {
+    borderColor: '#e11d48',
+    backgroundColor: '#fff1f2',
+  },
+  followBtnText: {
+    fontSize: Typography.sizes.xs + 1,
+    fontWeight: Typography.weights.bold,
+    color: '#e11d48',
+  },
+  followCountBadge: {
+    backgroundColor: '#ffe4e6',
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    borderRadius: BorderRadius.full,
+  },
+  followCountBadgeActive: {
+    backgroundColor: '#e11d48',
+  },
+  followCountText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    color: '#be123c',
+  },
+  followCountTextActive: {
+    color: '#ffffff',
+  },
+  notifToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#f8fafc',
+  },
+  notifToggleBtnActive: {
+    borderColor: '#bae6fd',
+    backgroundColor: '#f0f9ff',
+  },
+  notifToggleText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: '#64748b',
+  },
+  notifToggleTextActive: {
+    color: '#0284c7',
+  },
+  holidayCard: {
+    padding: Spacing.sm + 2,
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+  },
+  holidayCardTitle: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: '#92400e',
+  },
+  holidayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#fef3c7',
+    borderRadius: BorderRadius.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  holidayDateText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+    color: '#92400e',
+  },
+  holidayReasonText: {
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.semiBold,
+    color: '#b45309',
+  },
+  broadcastCard: {
+    padding: Spacing.sm + 2,
+    backgroundColor: '#fdf2f8',
+    borderColor: '#fbcfe8',
+  },
+  broadcastCardTitle: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: '#9d174d',
+  },
+  broadcastItem: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#fce7f3',
+    borderRadius: BorderRadius.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  broadcastItemTitle: {
+    fontSize: Typography.sizes.xs + 1,
+    fontWeight: Typography.weights.bold,
+    color: '#831843',
+    marginBottom: 2,
+  },
+  broadcastItemMsg: {
+    fontSize: Typography.sizes.xs,
+    color: '#475569',
+    lineHeight: 16,
   },
 });

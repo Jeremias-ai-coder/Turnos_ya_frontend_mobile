@@ -351,6 +351,12 @@ export const OwnerAgendaScreen: React.FC = () => {
                 const serviceDuration = item.service?.durationMinutes ?? 30;
                 const servicePrice = item.service?.price ?? 0;
                 const status = (item.status || '').toUpperCase();
+                const clientKey = clientEmail || clientName;
+                const clientApts = appointments.filter(
+                  (a) => (a.client?.email || a.user?.email || a.client?.name || a.user?.name) === clientKey
+                );
+                const completedVisits = clientApts.filter((a) => (a.status || '').toUpperCase() === 'COMPLETED').length;
+                const cancelledVisits = clientApts.filter((a) => (a.status || '').toUpperCase() === 'CANCELLED').length;
 
                 return (
                   <View style={styles.appointmentCard}>
@@ -371,7 +377,29 @@ export const OwnerAgendaScreen: React.FC = () => {
                         </Text>
                       </View>
                       <View style={styles.clientInfo}>
-                        <Text style={styles.clientNameText}>{clientName}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                          <Text style={styles.clientNameText}>{clientName}</Text>
+                          {completedVisits >= 2 ? (
+                            <View style={{ backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', borderWidth: 1, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: '#065f46' }}>
+                                🌟 Frecuente ({completedVisits})
+                              </Text>
+                            </View>
+                          ) : completedVisits === 0 ? (
+                            <View style={{ backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: '#1d4ed8' }}>
+                                🆕 1ra visita
+                              </Text>
+                            </View>
+                          ) : null}
+                          {cancelledVisits >= 2 && (
+                            <View style={{ backgroundColor: '#fef2f2', borderColor: '#fecaca', borderWidth: 1, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 }}>
+                              <Text style={{ fontSize: 10, fontWeight: '700', color: '#dc2626' }}>
+                                ⚠️ {cancelledVisits} cancel.
+                              </Text>
+                            </View>
+                          )}
+                        </View>
                         {clientEmail ? (
                           <Text style={styles.clientMetaText} numberOfLines={1}>
                             {clientEmail}

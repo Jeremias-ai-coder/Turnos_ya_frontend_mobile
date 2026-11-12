@@ -56,11 +56,22 @@ export const OwnerBusinessScreen: React.FC = () => {
   const [formDescription, setFormDescription] = useState('');
   const [savingBiz, setSavingBiz] = useState(false);
 
+  // Comunidad y Difusión a Seguidores
+  const [followersCount, setFollowersCount] = useState<number>(0);
+  const [broadcastModalVisible, setBroadcastModalVisible] = useState(false);
+  const [broadcastType, setBroadcastType] = useState<'PROMO' | 'NEWS' | 'HOLIDAY'>('PROMO');
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
+
   const fetchReviews = useCallback(async () => {
     if (!selectedBusiness) return;
     setLoadingReviews(true);
     try {
-      const res = await api.get(`/businesses/${selectedBusiness.id}/reviews`);
+      const [res, commRes] = await Promise.all([
+        api.get(`/businesses/${selectedBusiness.id}/reviews`),
+        api.get(`/businesses/${selectedBusiness.id}/community`).catch(() => ({ data: null })),
+      ]);
       const raw = res.data?.data ?? res.data;
       const list: Review[] = Array.isArray(raw) ? raw : [];
       setReviews(list);
@@ -68,6 +79,11 @@ export const OwnerBusinessScreen: React.FC = () => {
         average: selectedBusiness.rating ? Number(selectedBusiness.rating) : 0,
         count: selectedBusiness.reviewCount ? Number(selectedBusiness.reviewCount) : list.length,
       });
+
+      const commData = commRes.data?.data ?? commRes.data;
+      if (commData && typeof commData.followersCount === 'number') {
+        setFollowersCount(commData.followersCount);
+      }
     } catch {
       setReviews([]);
     } finally {
@@ -75,6 +91,36 @@ export const OwnerBusinessScreen: React.FC = () => {
       setRefreshing(false);
     }
   }, [selectedBusiness]);
+
+  const handleSendBroadcast = async () => {
+    if (!selectedBusiness) return;
+    if (!broadcastTitle.trim() || !broadcastMessage.trim()) {
+      Alert.alert('Campos requeridos', 'Por favor completá el título y el mensaje para tus seguidores.');
+      return;
+    }
+    setSendingBroadcast(true);
+    try {
+      const res = await api.post(`/businesses/${selectedBusiness.id}/broadcasts`, {
+        type: broadcastType,
+        title: broadcastTitle.trim(),
+        message: broadcastMessage.trim(),
+      });
+      const sentCount = res.data?.data?.sentCount ?? 0;
+      Alert.alert(
+        '¡Aviso enviado!',
+        sentCount > 0
+          ? `Tu comunicado fue enviado a ${sentCount} seguidores con notificaciones activas.`
+          : 'Tu comunicado fue publicado en la cartelera de tu comercio.'
+      );
+      setBroadcastModalVisible(false);
+      setBroadcastTitle('');
+      setBroadcastMessage('');
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.message || 'No se pudo enviar el comunicado.');
+    } finally {
+      setSendingBroadcast(false);
+    }
+  };
 
   useEffect(() => {
     fetchReviews();
@@ -311,6 +357,30 @@ export const OwnerBusinessScreen: React.FC = () => {
                 {selectedBusiness?.phone || 'Teléfono no configurado'}
               </Text>
             </View>
+
+            {/* Botón de Difusión a Seguidores */}
+            <TouchableOpacity
+              style={{
+                marginTop: Spacing.sm,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                borderRadius: BorderRadius.md,
+                backgroundColor: '#fff1f2',
+                borderWidth: 1.5,
+                borderColor: '#fecdd3',
+              }}
+              onPress={() => setBroadcastModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="megaphone-outline" size={17} color="#e11d48" />
+              <Text style={{ color: '#be123c', fontWeight: '800', fontSize: 13 }}>
+                Avisar a Seguidores ({followersCount} ❤️)
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Multiple Businesses Switcher */}
@@ -553,6 +623,91 @@ export const OwnerBusinessScreen: React.FC = () => {
           navigation.navigate('RegisterBusiness', { business: selectedBusiness });
         }}
       />
+
+      {/* Modal de Difusión a Seguidores */}
+      <Modal visible={broadcastModalVisible} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>📢 Avisar a Seguidores ({followersCount})</Text>
+              <TouchableOpacity onPress={() => setBroadcastModalVisible(false)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Tipo de aviso</Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+                {[
+                  { id: 'PROMO', label: '🎁 Promo' },
+                  { id: 'NEWS', label: '✨ Novedad' },
+                  { id: 'HOLIDAY', label: '🏖️ Feriado' },
+                ].map((opt) => {
+                  const active = broadcastType === opt.id;
+                  return (
+                    <TouchableOpacity
+                      key={opt.id}
+                      style={[
+                        styles.catChip,
+                        active && { backgroundColor: '#e11d48', borderColor: '#e11d48' },
+                      ]}
+                      onPress={() => setBroadcastType(opt.id as any)}
+                    >
+                      <Text style={[styles.catChipText, active && styles.catChipTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Título corto *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ej: 20% OFF este jueves / Cerrado por feriado"
+                placeholderTextColor={Colors.textDisabled}
+                value={broadcastTitle}
+                onChangeText={setBroadcastTitle}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Mensaje para tus seguidores *</Text>
+              <TextInput
+                style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
+                placeholder="Escribí el detalle de la promoción, turnos liberados o aviso de cierre..."
+                placeholderTextColor={Colors.textDisabled}
+                value={broadcastMessage}
+                onChangeText={setBroadcastMessage}
+                multiline
+              />
+            </View>
+
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setBroadcastModalVisible(false)}
+                disabled={sendingBroadcast}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSaveBtn, { backgroundColor: '#e11d48', opacity: sendingBroadcast ? 0.7 : 1 }]}
+                onPress={handleSendBroadcast}
+                disabled={sendingBroadcast}
+              >
+                {sendingBroadcast ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.modalSaveText}>Enviar Aviso</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };

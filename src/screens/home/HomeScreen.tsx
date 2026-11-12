@@ -67,6 +67,59 @@ export const HomeScreen: React.FC = () => {
   const [locatingUser, setLocatingUser] = useState<boolean>(false);
   const [locationLabel, setLocationLabel] = useState<string>('Cerca de ti');
 
+  // Estados de Favoritos / Comercios Seguidos
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+  const [onlyFavorites, setOnlyFavorites] = useState<boolean>(false);
+
+  const fetchFavorites = async () => {
+    if (!user) {
+      setFavoriteIds([]);
+      setOnlyFavorites(false);
+      return;
+    }
+    try {
+      const res = await api.get('/businesses/my/favorites');
+      const list = res.data?.data ?? res.data ?? [];
+      if (Array.isArray(list)) {
+        setFavoriteIds(list.map((f: any) => Number(f.businessId)));
+      }
+    } catch {
+      // silencioso
+    }
+  };
+
+  useEffect(() => {
+    fetchFavorites();
+  }, [user]);
+
+  const handleToggleFavorite = async (businessId: number) => {
+    if (!user) {
+      navigation.navigate('Login');
+      return;
+    }
+    const wasFav = favoriteIds.includes(businessId);
+    setFavoriteIds((prev) =>
+      wasFav ? prev.filter((id) => id !== businessId) : [...prev, businessId]
+    );
+    try {
+      const res = await api.post(`/businesses/${businessId}/follow`);
+      const isFollowing = res.data?.data?.isFollowing;
+      if (typeof isFollowing === 'boolean') {
+        setFavoriteIds((prev) =>
+          isFollowing
+            ? prev.includes(businessId)
+              ? prev
+              : [...prev, businessId]
+            : prev.filter((id) => id !== businessId)
+        );
+      }
+    } catch {
+      setFavoriteIds((prev) =>
+        wasFav ? [...prev, businessId] : prev.filter((id) => id !== businessId)
+      );
+    }
+  };
+
   const fetchBusinesses = async (forceRefresh = false) => {
     setErrorMsg('');
     try {
@@ -110,6 +163,7 @@ export const HomeScreen: React.FC = () => {
     setRefreshing(true);
     fetchBusinesses(true);
     fetchCategories(true);
+    fetchFavorites();
   };
 
   const handleToggleProximity = async () => {
@@ -207,6 +261,11 @@ export const HomeScreen: React.FC = () => {
       result.sort((a, b) => (a.distanceKm ?? 999999) - (b.distanceKm ?? 999999));
     }
 
+    // 6. Filtro por Favoritos
+    if (onlyFavorites) {
+      result = result.filter((b) => favoriteIds.includes(b.id));
+    }
+
     return result;
   }, [
     businesses,
@@ -215,6 +274,8 @@ export const HomeScreen: React.FC = () => {
     userCoords,
     sortByProximity,
     maxDistanceKm,
+    onlyFavorites,
+    favoriteIds,
   ]);
 
   return (
@@ -300,8 +361,33 @@ export const HomeScreen: React.FC = () => {
             </ScrollView>
           </View>
 
-          {/* Proximity & Distance Filter Bar */}
+          {/* Proximity & Favorites Filter Bar */}
           <View style={styles.proximityBar}>
+            {user && (
+              <TouchableOpacity
+                style={[
+                  styles.proximityBtn,
+                  onlyFavorites && styles.proximityBtnActive,
+                ]}
+                onPress={() => setOnlyFavorites((prev) => !prev)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={onlyFavorites ? 'heart' : 'heart-outline'}
+                  size={14}
+                  color={onlyFavorites ? '#e11d48' : Colors.white}
+                />
+                <Text
+                  style={[
+                    styles.proximityBtnText,
+                    onlyFavorites && { color: '#be123c' },
+                  ]}
+                >
+                  Favoritos ({favoriteIds.length})
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               style={[
                 styles.proximityBtn,
@@ -408,6 +494,8 @@ export const HomeScreen: React.FC = () => {
               renderItem={({ item }) => (
                 <BusinessCard
                   business={item}
+                  isFavorite={favoriteIds.includes(item.id)}
+                  onToggleFavorite={() => handleToggleFavorite(item.id)}
                   onPress={() =>
                     navigation.navigate('BusinessDetail', { businessId: item.id })
                   }

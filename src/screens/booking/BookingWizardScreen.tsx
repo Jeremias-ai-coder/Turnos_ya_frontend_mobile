@@ -63,6 +63,7 @@ export const BookingWizardScreen: React.FC = () => {
   // Business Data
   const [services, setServices] = useState<BusinessService[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [closedDates, setClosedDates] = useState<{ id: number; closedDate: string; reason: string }[]>([]);
 
   // Wizard selections
   const [selectedService, setSelectedService] = useState<BusinessService | null>(
@@ -85,9 +86,10 @@ export const BookingWizardScreen: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [sRes, schRes] = await Promise.all([
+        const [sRes, schRes, commRes] = await Promise.all([
           api.get(`/businesses/${businessId}/services`),
           api.get(`/businesses/${businessId}/schedules`),
+          api.get(`/businesses/${businessId}/community`).catch(() => ({ data: null })),
         ]);
 
         const sData = sRes.data?.data ?? sRes.data ?? [];
@@ -95,6 +97,11 @@ export const BookingWizardScreen: React.FC = () => {
 
         const schData = schRes.data?.data ?? schRes.data ?? [];
         setSchedules(schData);
+
+        const commData = commRes.data?.data ?? commRes.data;
+        if (commData && Array.isArray(commData.closedDates)) {
+          setClosedDates(commData.closedDates);
+        }
 
         if (preselectedServiceId) {
           const match = sData.find(
@@ -173,11 +180,17 @@ export const BookingWizardScreen: React.FC = () => {
     return jsDay === 0 ? 7 : jsDay;
   };
 
+  const currentDayClosedNotice = useMemo(() => {
+    if (!selectedDate) return null;
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    return closedDates.find((cd) => cd.closedDate === dateStr) || null;
+  }, [selectedDate, closedDates]);
+
   const currentDaySchedules = useMemo(() => {
-    if (!selectedDate) return [];
+    if (!selectedDate || currentDayClosedNotice) return [];
     const dow = getBusinessDayOfWeek(selectedDate);
     return schedules.filter((s) => s.dayOfWeek === dow);
-  }, [selectedDate, schedules]);
+  }, [selectedDate, schedules, currentDayClosedNotice]);
 
   // Generador de slots de turnos
   const slotGroups = useMemo(() => {
@@ -591,6 +604,16 @@ export const BookingWizardScreen: React.FC = () => {
                   Buscando horarios disponibles...
                 </Text>
               </View>
+            ) : currentDayClosedNotice ? (
+              <Card style={[styles.noSlotsCard, { backgroundColor: '#fffbeb', borderColor: '#fde68a' }]}>
+                <Ionicons name="calendar-clear" size={32} color="#d97706" />
+                <Text style={[styles.noSlotsText, { color: '#92400e', fontWeight: 'bold' }]}>
+                  🏖️ Comercio cerrado en esta fecha: {currentDayClosedNotice.reason}
+                </Text>
+                <Text style={[styles.noSlotsText, { color: '#b45309', fontSize: 12 }]}>
+                  Por favor seleccioná otro día disponible en el calendario superior.
+                </Text>
+              </Card>
             ) : slotGroups.length === 0 ? (
               <Card style={styles.noSlotsCard}>
                 <Ionicons name="time-outline" size={32} color={Colors.textDisabled} />

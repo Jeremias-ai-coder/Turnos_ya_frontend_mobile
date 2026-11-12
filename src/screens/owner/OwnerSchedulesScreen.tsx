@@ -46,18 +46,35 @@ export const OwnerSchedulesScreen: React.FC = () => {
   const [endTime, setEndTime] = useState('18:00');
   const [saving, setSaving] = useState(false);
 
+  // Modo Feriado / Días Cerrados Especiales
+  const [closedDates, setClosedDates] = useState<{ id: number; closedDate: string; reason: string }[]>([]);
+  const [holidayModalVisible, setHolidayModalVisible] = useState(false);
+  const [holidayDate, setHolidayDate] = useState('');
+  const [holidayReason, setHolidayReason] = useState('Cerrado por Feriado Nacional');
+  const [notifyFollowers, setNotifyFollowers] = useState(true);
+  const [savingHoliday, setSavingHoliday] = useState(false);
+
   const fetchSchedules = useCallback(async () => {
     if (!selectedBusiness) {
       setSchedules([]);
+      setClosedDates([]);
       return;
     }
 
     setLoading(true);
     try {
-      const res = await api.get(`/businesses/${selectedBusiness.id}/schedules`);
+      const [res, commRes] = await Promise.all([
+        api.get(`/businesses/${selectedBusiness.id}/schedules`),
+        api.get(`/businesses/${selectedBusiness.id}/community`).catch(() => ({ data: null })),
+      ]);
       const raw = res.data?.data ?? res.data;
       const list: Schedule[] = Array.isArray(raw) ? raw : [];
       setSchedules(list);
+
+      const commData = commRes.data?.data ?? commRes.data;
+      if (commData && Array.isArray(commData.closedDates)) {
+        setClosedDates(commData.closedDates);
+      }
     } catch (err: any) {
       console.warn('Error fetching schedules:', err?.message || err);
       setSchedules([]);
@@ -66,6 +83,62 @@ export const OwnerSchedulesScreen: React.FC = () => {
       setRefreshing(false);
     }
   }, [selectedBusiness]);
+
+  const handleAddClosedDate = async () => {
+    if (!selectedBusiness) return;
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(holidayDate.trim())) {
+      Alert.alert('Fecha inválida', 'Por favor ingresá la fecha en formato AAAA-MM-DD (ej: 2026-12-25).');
+      return;
+    }
+    if (!holidayReason.trim()) {
+      Alert.alert('Motivo requerido', 'Ingresá el motivo del cierre (ej: Feriado Nacional).');
+      return;
+    }
+    setSavingHoliday(true);
+    try {
+      const res = await api.post(`/businesses/${selectedBusiness.id}/closed-dates`, {
+        closedDate: holidayDate.trim(),
+        reason: holidayReason.trim(),
+        notifyFollowers,
+      });
+      const notified = res.data?.data?.notifiedCount ?? 0;
+      Alert.alert(
+        'Fecha bloqueada',
+        `Se bloqueó el día ${holidayDate.trim()} (${holidayReason.trim()})${notified > 0 ? ` y se notificó a ${notified} seguidores.` : '.'}`
+      );
+      setHolidayModalVisible(false);
+      setHolidayDate('');
+      fetchSchedules();
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.message || 'No se pudo registrar el día cerrado.');
+    } finally {
+      setSavingHoliday(false);
+    }
+  };
+
+  const handleRemoveClosedDate = (closedDate: string) => {
+    if (!selectedBusiness) return;
+    Alert.alert(
+      'Reabrir fecha',
+      `¿Deseás quitar el bloqueo del día ${closedDate}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reabrir fecha',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.delete(`/businesses/${selectedBusiness.id}/closed-dates/${closedDate}`);
+              setClosedDates((prev) => prev.filter((cd) => cd.closedDate !== closedDate));
+            } catch {
+              Alert.alert('Error', 'No se pudo desbloquear la fecha.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     fetchSchedules();
@@ -246,8 +319,156 @@ export const OwnerSchedulesScreen: React.FC = () => {
               );
             })
           )}
+
+          {/* Panel de Modo Feriado / Días Cerrados Especiales */}
+          <View style={[styles.dayCard, { backgroundColor: '#fffbeb', borderColor: '#fde68a', marginTop: Spacing.sm }]}>
+            <View style={styles.dayHeaderRow}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={[styles.dayName, { color: '#92400e' }]}>
+                  🏖️ Modo Feriado y Días Cerrados
+                </Text>
+                <Text style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>
+                  Bloqueá fechas puntuales sin borrar tus horarios habituales.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.addSmallBtn, { backgroundColor: '#fef3c7', borderWidth: 1, borderColor: '#f59e0b' }]}
+                onPress={() => {
+                  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+                  setHolidayDate(tomorrow);
+                  setHolidayReason('Cerrado por Feriado Nacional');
+                  setNotifyFollowers(true);
+                  setHolidayModalVisible(true);
+                }}
+              >
+                <Ionicons name="add" size={16} color="#92400e" />
+                <Text style={[styles.addSmallBtnText, { color: '#92400e' }]}>Bloquear día</Text>
+              </TouchableOpacity>
+            </View>
+
+            {closedDates.length === 0 ? (
+              <Text style={[styles.closedDayText, { color: '#b45309', marginTop: 6 }]}>
+                No tenés feriados ni días especiales bloqueados próximamente.
+              </Text>
+            ) : (
+              <View style={{ marginTop: 8, gap: 6 }}>
+                {closedDates.map((cd) => (
+                  <View
+                    key={cd.id}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: '#ffffff',
+                      borderWidth: 1,
+                      borderColor: '#fde68a',
+                      borderRadius: BorderRadius.md,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#92400e' }}>
+                        📅 {cd.closedDate}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: '#b45309' }}>{cd.reason}</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleRemoveClosedDate(cd.closedDate)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={17} color={Colors.danger} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         </ScrollView>
       </View>
+
+      {/* Modal para Bloquear Fecha / Feriado */}
+      <Modal visible={holidayModalVisible} transparent animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>🏖️ Bloquear Fecha / Feriado</Text>
+              <TouchableOpacity onPress={() => setHolidayModalVisible(false)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Fecha a cerrar (AAAA-MM-DD) *</Text>
+              <TextInput
+                style={styles.timeInput}
+                placeholder="2026-12-25"
+                placeholderTextColor={Colors.textDisabled}
+                value={holidayDate}
+                onChangeText={setHolidayDate}
+                maxLength={10}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Motivo del cierre *</Text>
+              <TextInput
+                style={[styles.timeInput, { textAlign: 'left', fontSize: 14 }]}
+                placeholder="Ej: Cerrado por Feriado Nacional"
+                placeholderTextColor={Colors.textDisabled}
+                value={holidayReason}
+                onChangeText={setHolidayReason}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                padding: 10,
+                backgroundColor: '#fffbeb',
+                borderRadius: BorderRadius.md,
+                borderWidth: 1,
+                borderColor: '#fde68a',
+                marginBottom: Spacing.sm,
+              }}
+              onPress={() => setNotifyFollowers((prev) => !prev)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={notifyFollowers ? 'checkbox' : 'square-outline'}
+                size={20}
+                color="#d97706"
+              />
+              <Text style={{ flex: 1, fontSize: 12, color: '#92400e', fontWeight: '600' }}>
+                Enviar notificación automática a los clientes que siguen mi comercio
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setHolidayModalVisible(false)}
+                disabled={savingHoliday}
+              >
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSaveBtn, { backgroundColor: '#d97706', opacity: savingHoliday ? 0.7 : 1 }]}
+                onPress={handleAddClosedDate}
+                disabled={savingHoliday}
+              >
+                {savingHoliday ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.modalSaveText}>Bloquear Fecha</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Add Schedule Modal */}
       <Modal visible={modalVisible} transparent animationType="slide">
